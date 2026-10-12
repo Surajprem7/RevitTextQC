@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" />
+    <PackageReference Include="xunit" Version="2.9.*" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\RevitTextQC.Core\RevitTextQC.Core.csproj" />
+    <!-- The real dictionaries shipped with the add-in, for the Hunspell smoke test. -->
+    <None Include="..\..\src\RevitTextQC\Dictionaries\en_US.*" Link="Dictionaries\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,16 @@
+<Project>
+  <PropertyGroup>
+    <!-- Revit version to build for: 2024, 2025, 2026 or 2027. Pass with -p:RevitVersion=2025 -->
+    <RevitVersion Condition="'$(RevitVersion)' == ''">2026</RevitVersion>
+    <!-- Single source of the add-in version. The release workflow overrides it from the git tag. -->
+    <Version Condition="'$(Version)' == ''">0.1.0</Version>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <Authors>RevitTextQC</Authors>
+    <Product>Revit Text QC</Product>
+    <!-- Separate obj folder per Revit version so switching versions never reuses stale restore data.
+         Kept outside the project folders, otherwise one version's generated files are compiled into the next. -->
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)obj\$(MSBuildProjectName)\R$(RevitVersion)\</BaseIntermediateOutputPath>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+</Project>

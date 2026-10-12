@@ -1,0 +1,50 @@
+name: Build and release
+
+# Every push and pull request is built and tested.
+# Pushing a tag such as v0.2.0 also publishes a GitHub release with one zip per Revit version;
+# installed add-ins find that release and update themselves.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Test
+        run: dotnet test tests/RevitTextQC.Tests/RevitTextQC.Tests.csproj -c Release --nologo
+
+      - name: Build and package
+        shell: pwsh
+        run: |
+          $version = ''
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $version = $env:GITHUB_REF_NAME.TrimStart('v')
+            if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Tag must look like v1.2.3, got $env:GITHUB_REF_NAME" }
+          }
+          ./build.ps1 -Package -Version $version
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RevitTextQC
+          path: dist/*.zip
+
+      - name: Publish release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $files = @(Get-ChildItem dist/*.zip | ForEach-Object FullName) + 'install.ps1'
+          gh release create $env:GITHUB_REF_NAME @files --title "Text QC $env:GITHUB_REF_NAME" --generate-notes

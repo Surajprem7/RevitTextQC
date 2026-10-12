@@ -1,0 +1,4 @@
+* text=auto
+# Hunspell dictionaries are shipped byte-for-byte as published.
+*.dic -text
+*.aff -text

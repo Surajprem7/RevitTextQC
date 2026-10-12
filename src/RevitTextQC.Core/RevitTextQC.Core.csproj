@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Revit-independent QC logic: rules, settings, spell checking, release parsing.
+       netstandard2.0 so the same binary loads in Revit 2024 (.NET Framework 4.8) through 2027 (.NET 10). -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>RevitTextQC.Core</RootNamespace>
+    <AssemblyName>RevitTextQC.Core</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WeCantSpell.Hunspell" Version="7.0.1" />
+  </ItemGroup>
+
+</Project>
