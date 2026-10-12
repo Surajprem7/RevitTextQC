@@ -83,6 +83,7 @@ namespace RevitTextQC.UI
             SheetNameCase.SelectedIndex = (int)s.SheetNameCase;
             ViewNameCase.SelectedIndex = (int)s.ViewNameCase;
             ParameterCase.SelectedIndex = (int)s.ParameterCase;
+            CaseExceptions.Text = Lines.Join(s.CaseExceptions);
             CheckWhitespace.IsChecked = s.CheckWhitespace;
             CheckForbiddenTerms.IsChecked = s.CheckForbiddenTerms;
             ForbiddenTerms.Text = Lines.Join(s.ForbiddenTerms.Select(t =>
@@ -129,6 +130,7 @@ namespace RevitTextQC.UI
                 SheetNameCase = (CaseMode)Math.Max(0, SheetNameCase.SelectedIndex),
                 ViewNameCase = (CaseMode)Math.Max(0, ViewNameCase.SelectedIndex),
                 ParameterCase = (CaseMode)Math.Max(0, ParameterCase.SelectedIndex),
+                CaseExceptions = Lines.Split(CaseExceptions.Text),
                 CheckWhitespace = CheckWhitespace.IsChecked == true,
                 CheckForbiddenTerms = CheckForbiddenTerms.IsChecked == true,
                 ForbiddenTerms = Lines.Split(ForbiddenTerms.Text).Select(ParseTerm).Where(t => t.Term.Length > 0).ToList(),
@@ -267,7 +269,18 @@ namespace RevitTextQC.UI
                 IsEnabled = typesInModel != null,
                 ToolTip = "Lists the types, fonts and sizes used in the open model so you can delete the ones that are not standard."
             };
-            fill.Click += (s, e) => Fill(typesInModel().Where(t => t.Source == typeSource).ToList());
+            fill.Click += (s, e) =>
+            {
+                // Reads the model; a failure here must not escape into Revit's message loop.
+                try
+                {
+                    Fill(typesInModel().Where(t => t.Source == typeSource).ToList());
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("The model could not be read:\n" + ex.Message, "Text QC Settings", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+            };
             panel.Children.Add(fill);
 
             Content = new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };

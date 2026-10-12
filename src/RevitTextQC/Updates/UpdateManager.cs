@@ -68,7 +68,9 @@ namespace RevitTextQC.Updates
             if (!UpdateConfig.IsConfigured)
                 throw new InvalidOperationException("No GitHub repository is configured for updates.");
 
-            using (HttpResponseMessage response = await Http.Value.GetAsync(UpdateConfig.LatestReleaseApi).ConfigureAwait(false))
+            // Short timeout: the ribbon button waits on this, and a dead network must not freeze Revit for minutes.
+            using (var timeout = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(15)))
+            using (HttpResponseMessage response = await Http.Value.GetAsync(UpdateConfig.LatestReleaseApi, timeout.Token).ConfigureAwait(false))
             {
                 if (response.StatusCode == HttpStatusCode.NotFound)
                     throw new InvalidOperationException("No published release was found on GitHub.");
@@ -82,6 +84,27 @@ namespace RevitTextQC.Updates
                     Asset = release.FindAsset(UpdateConfig.AssetName(App.RevitVersion)),
                     IsNewer = VersionUtil.IsNewer(release.Version, App.CurrentVersion)
                 };
+            }
+        }
+
+        /// <summary>
+        /// The updater copies a release over Addins\&lt;year&gt;\RevitTextQC.addin + RevitTextQC\. If the add-in was
+        /// installed some other way, copying would scatter files in the wrong place, so it is refused.
+        /// </summary>
+        public static bool InstallLayoutIsStandard
+        {
+            get
+            {
+                try
+                {
+                    string folder = App.InstallFolder;
+                    return string.Equals(Path.GetFileName(folder), "RevitTextQC", StringComparison.OrdinalIgnoreCase)
+                           && File.Exists(Path.Combine(Path.GetDirectoryName(folder), "RevitTextQC.addin"));
+                }
+                catch (Exception)
+                {
+                    return false;
+                }
             }
         }
 
@@ -203,7 +226,7 @@ namespace RevitTextQC.Updates
                     Version staged = StagedVersion;
                     if (staged != null && !VersionUtil.IsNewer(check.Release.Version, staged)) return; // already waiting
 
-                    if (install && check.Asset != null)
+                    if (install && check.Asset != null && InstallLayoutIsStandard)
                     {
                         await StageAsync(check).ConfigureAwait(false);
                         Notify($"Text QC {check.Release.TagName} has been downloaded.",
@@ -284,7 +307,11 @@ namespace RevitTextQC.Updates
                 MainContent = Shorten(check.Release.Notes, 600),
                 CommonButtons = TaskDialogCommonButtons.Cancel
             };
-            dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "Download now and install when Revit closes");
+            if (InstallLayoutIsStandard)
+                dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "Download now and install when Revit closes");
+            else
+                dialog.MainContent = "This copy was not installed in the standard add-ins folder, so it cannot update itself. " +
+                                     "Download the new version from the releases page.\n\n" + dialog.MainContent;
             dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "Open the releases page");
 
             TaskDialogResult choice = dialog.Show();
@@ -309,6 +336,7 @@ namespace RevitTextQC.Updates
         private static string Describe(Exception ex)
         {
             while (ex is AggregateException && ex.InnerException != null) ex = ex.InnerException;
+            if (ex is OperationCanceledException) return "GitHub did not respond in time. Check the internet connection and try again.";
             return ex.InnerException != null ? ex.Message + "\n" + ex.InnerException.Message : ex.Message;
         }
 
@@ -328,10 +356,12 @@ namespace RevitTextQC.Updates
         {
             try
             {
-                if (StagedVersion == null) return;
+                if (StagedVersion == null || !InstallLayoutIsStandard) return;
 
                 // Addins\<version>\RevitTextQC\RevitTextQC.dll -> Addins\<version>
                 string installRoot = Path.GetDirectoryName(App.InstallFolder);
+                string mainDll = Path.Combine(App.InstallFolder, "RevitTextQC.dll");
+                string coreDll = Path.Combine(App.InstallFolder, "RevitTextQC.Core.dll");
                 string script = Path.Combine(UpdatesFolder, "apply-" + App.RevitVersion + ".cmd");
                 int pid = Process.GetCurrentProcess().Id;
 
@@ -348,9 +378,13 @@ namespace RevitTextQC.Updates
                 cmd.AppendLine("ping -n 3 127.0.0.1 >nul");
                 cmd.AppendLine("goto wait");
                 cmd.AppendLine(":copy");
-                // Another Revit session of the same version can still hold the files: retry, and if it
-                // keeps failing leave the staged files in place for the next shutdown.
-                cmd.AppendLine($"robocopy \"{StagedFolder}\" \"{installRoot}\" /E /R:10 /W:3 /NP > \"{LogFile}\" 2>&1");
+                // Another Revit session of the same version can still hold the add-in. Copying then would
+                // replace some files and not others, leaving a mixed-version install, so test the two
+                // assemblies for a write lock first and leave everything staged for the next shutdown.
+                cmd.AppendLine($"if exist \"{mainDll}\" ( ( (call ) >>\"{mainDll}\" ) 2>nul || goto end )");
+                cmd.AppendLine($"if exist \"{coreDll}\" ( ( (call ) >>\"{coreDll}\" ) 2>nul || goto end )");
+                // /IS /IT: copy even when size and timestamp match, so a staged file is never silently skipped.
+                cmd.AppendLine($"robocopy \"{StagedFolder}\" \"{installRoot}\" /E /IS /IT /R:10 /W:3 /NP > \"{LogFile}\" 2>&1");
                 cmd.AppendLine("if errorlevel 8 goto end");
                 cmd.AppendLine($"rmdir /S /Q \"{StagedFolder}\"");
                 cmd.AppendLine($"del /Q \"{StagedMarker}\"");

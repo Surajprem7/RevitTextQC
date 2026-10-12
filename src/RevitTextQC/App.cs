@@ -40,7 +40,14 @@ namespace RevitTextQC
             Settings = QcSettings.Load();
             RevitDispatcher.Initialize();
             CreateRibbon(application);
-            UpdateManager.StartBackgroundCheck();
+            try
+            {
+                UpdateManager.StartBackgroundCheck();
+            }
+            catch (Exception)
+            {
+                // An updater problem must never stop the add-in itself from loading.
+            }
             return Result.Succeeded;
         }
 
@@ -102,6 +109,14 @@ namespace RevitTextQC
                 if (name.EndsWith(".resources", StringComparison.OrdinalIgnoreCase)) return null;
 
                 string folder = Path.GetDirectoryName(typeof(DependencyResolver).Assembly.Location);
+
+                // Only answer for this add-in's own files. Other add-ins may also be missing, say,
+                // System.Memory, and handing them our copy would change how they behave.
+                string requester = args.RequestingAssembly?.Location;
+                if (!string.IsNullOrEmpty(requester) &&
+                    !string.Equals(Path.GetDirectoryName(requester), folder, StringComparison.OrdinalIgnoreCase))
+                    return null;
+
                 string candidate = Path.Combine(folder, name + ".dll");
                 if (!File.Exists(candidate)) return null;
 

@@ -45,12 +45,21 @@ The first time Revit loads the add-in it asks whether to trust it; choose **Alwa
 
 1. Open the **Text QC** tab and press **Run Text QC**.
 2. Choose **Active view / sheet** or **Entire project** and press **Scan**.
-3. Select a finding. Double-click (or **Show in Revit**) to zoom to it.
+3. Click a finding to highlight it in Revit. Text on the open sheet is highlighted without leaving the
+   sheet; double-click (or **Show in Revit**) to open its view and zoom to it. **Group by** arranges the
+   findings by rule, view/sheet, kind of text or level.
 4. For a fixable finding, review the corrected text, edit it if needed and press **Apply fix**.
    **Fix all selected** applies the first suggestion to every selected finding that has one.
    Each batch is one Revit undo step.
 5. **Add word to dictionary** stops a word being reported again.
 6. **Export CSV** saves the visible findings for a QC record.
+
+## Find text by type, size, font or style
+
+The **Find text** tab lists what the scanned view or project actually uses. Choose **Find by** (text type,
+text size, font, or style such as bold/italic), and whether to look in text notes, dimensions or both. Each
+value shows how many elements use it and whether it is approved in your standards. Select a value to list
+the elements, click one to highlight it, or press **Select all in Revit** and change them with the Type Selector.
 
 ## Set your office standards
 
@@ -60,6 +69,10 @@ The first time Revit loads the add-in it asks whether to trust it; choose **Alwa
   text notes and dimensions. An empty list means that property is not checked. **Fill from current model**
   lists everything in use in the open model so you can delete what is not standard.
 - **Case & wording**: required case per kind of text, and forbidden terms written as `approx => approximately`.
+  Unit symbols (`mm`, `kN`, `c/c`) and anything containing a digit (`100mm`, `M12`) are never re-cased; the
+  list of exceptions is editable.
+- **Spelling**: a built-in list of common construction abbreviations (`FFL`, `DPC`, `TYP`, ...) is accepted
+  on top of the dictionary and your own custom words.
 - **Naming**: regular expressions for sheet numbers, sheet names and view names. The whole value must match.
 
 Settings are stored per user in `%APPDATA%\RevitTextQC\settings.json`. Use **Export** and **Import** to share

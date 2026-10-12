@@ -14,9 +14,11 @@ namespace RevitTextQC.Core.Rules
         {
             "a", "an", "and", "as", "at", "by", "for", "in", "of", "on", "or", "the", "to", "with"
         };
-        private static readonly Regex WordRegex = new Regex(@"\p{L}[\p{L}'’]*", RegexOptions.Compiled);
+        // A token keeps digits, slashes and superscripts together so 100mm, c/c and m² are judged as a whole.
+        private static readonly Regex TokenRegex = new Regex(@"[\p{L}\p{N}][\p{L}\p{N}'’/²³]*", RegexOptions.Compiled);
 
         private readonly QcSettings _settings;
+        private readonly HashSet<string> _exceptions;
 
         public string Id => RuleId;
         public string Name => "Letter case";
@@ -24,6 +26,7 @@ namespace RevitTextQC.Core.Rules
         public CaseRule(QcSettings settings)
         {
             _settings = settings;
+            _exceptions = new HashSet<string>(settings.CaseExceptions ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
         }
 
         public IEnumerable<QcIssue> Check(TextItem item)
@@ -34,7 +37,7 @@ namespace RevitTextQC.Core.Rules
             // Revit's All Caps format already shows the note in capitals.
             if (mode == CaseMode.Upper && item.DisplayedAllCaps) yield break;
 
-            string expected = Convert(item.Text, mode);
+            string expected = Convert(item.Text, mode, _exceptions);
             if (expected == item.Text) yield break;
 
             yield return new QcIssue
@@ -71,30 +74,39 @@ namespace RevitTextQC.Core.Rules
             }
         }
 
-        public static string Convert(string text, CaseMode mode)
+        /// <summary>
+        /// Converts text to the required case. Tokens containing a digit (100mm, M12, 2nd) and the listed
+        /// exceptions (unit symbols such as mm or kN) are left exactly as typed, because changing their
+        /// case changes their meaning.
+        /// </summary>
+        public static string Convert(string text, CaseMode mode, ICollection<string> exceptions = null)
         {
-            switch (mode)
+            if (mode == CaseMode.Any) return text;
+
+            bool first = true;
+            return TokenRegex.Replace(text, m =>
             {
-                case CaseMode.Upper: return text.ToUpper(CultureInfo.InvariantCulture);
-                case CaseMode.Lower: return text.ToLower(CultureInfo.InvariantCulture);
-                case CaseMode.Title: return ToTitle(text);
-                default: return text;
-            }
+                string token = m.Value;
+                bool isFirst = first;
+                first = false;
+
+                if (token.Any(char.IsDigit) || (exceptions != null && exceptions.Contains(token))) return token;
+
+                switch (mode)
+                {
+                    case CaseMode.Upper: return token.ToUpper(CultureInfo.InvariantCulture);
+                    case CaseMode.Lower: return token.ToLower(CultureInfo.InvariantCulture);
+                    default: return ToTitle(token, isFirst);
+                }
+            });
         }
 
-        private static string ToTitle(string text)
+        private static string ToTitle(string word, bool isFirst)
         {
-            bool first = true;
-            return WordRegex.Replace(text, m =>
-            {
-                string word = m.Value;
-                bool keepSmall = !first && SmallWords.Contains(word);
-                first = false;
-                // Leave acronyms (HVAC, RCP) alone.
-                if (word.Length > 1 && !word.Any(char.IsLower)) return word;
-                if (keepSmall) return word.ToLowerInvariant();
-                return char.ToUpperInvariant(word[0]) + word.Substring(1);
-            });
+            // Leave acronyms (HVAC, RCP) alone.
+            if (word.Length > 1 && !word.Any(char.IsLower)) return word;
+            if (!isFirst && SmallWords.Contains(word)) return word.ToLowerInvariant();
+            return char.ToUpperInvariant(word[0]) + word.Substring(1);
         }
     }
 

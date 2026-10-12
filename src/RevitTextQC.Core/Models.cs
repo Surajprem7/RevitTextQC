@@ -55,6 +55,9 @@ namespace RevitTextQC.Core
         /// <summary>Dimension segment index, or -1.</summary>
         public int Index { get; set; } = -1;
 
+        /// <summary>Id of the text note type or dimension type of a text note or dimension, otherwise 0.</summary>
+        public long TypeId { get; set; }
+
         /// <summary>Set for <see cref="TextSource.TextNoteType"/> and <see cref="TextSource.DimensionType"/>.</summary>
         public TextStyleInfo Style { get; set; }
 
@@ -89,6 +92,9 @@ namespace RevitTextQC.Core
 
         /// <summary>Other candidate words for a misspelling, best first. The first one produced <see cref="Suggestion"/>.</summary>
         public IList<string> Alternatives { get; set; } = new List<string>();
+
+        /// <summary>Spelling suggestions were skipped to keep the scan fast and are worked out on demand.</summary>
+        public bool SuggestionsPending { get; set; }
 
         /// <summary>The misspelled word or forbidden term the issue is about, if any.</summary>
         public string Word { get; set; }

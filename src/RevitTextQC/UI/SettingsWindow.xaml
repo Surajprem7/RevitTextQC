@@ -1,7 +1,7 @@
 <Window x:Class="RevitTextQC.UI.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Text QC Settings" Width="720" Height="600" MinWidth="620" MinHeight="480"
+        Title="Text QC Settings" Width="720" Height="690" MinWidth="620" MinHeight="520"
         ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
         FontFamily="Segoe UI" FontSize="12">
     <Window.Resources>
@@ -97,6 +97,9 @@
                         <TextBlock Grid.Row="4" Text="Parameters" VerticalAlignment="Center" />
                         <ComboBox Grid.Row="4" Grid.Column="1" x:Name="ParameterCase" Margin="0,2" />
                     </Grid>
+                    <TextBlock DockPanel.Dock="Top" Style="{StaticResource Hint}" Margin="20,0,0,2"
+                               Text="Never change the case of (one per line). Anything containing a digit, such as 100mm or M12, is always left alone." />
+                    <TextBox DockPanel.Dock="Top" x:Name="CaseExceptions" Style="{StaticResource List}" Height="52" Margin="20,0,0,8" />
                     <CheckBox DockPanel.Dock="Top" x:Name="CheckWhitespace" Content="Check spacing (double spaces, spaces at the ends, space before punctuation, empty notes)" />
                     <CheckBox DockPanel.Dock="Top" x:Name="CheckForbiddenTerms" Content="Check for forbidden words and phrases:" Margin="0,10,0,3" />
                     <TextBlock DockPanel.Dock="Top" Style="{StaticResource Hint}"

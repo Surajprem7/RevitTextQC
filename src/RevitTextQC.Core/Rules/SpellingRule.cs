@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -9,6 +10,7 @@ namespace RevitTextQC.Core.Rules
     public class SpellingRule : IQcRule
     {
         public const string RuleId = "spelling";
+        private const int MaxAlternatives = 6;
 
         // A word is a run of letters (apostrophes allowed inside) that does not touch a digit,
         // so codes such as M12, 100mm or L1 are never spell checked.
@@ -20,9 +22,17 @@ namespace RevitTextQC.Core.Rules
         private readonly int _minLength;
         private readonly Dictionary<string, bool> _known = new Dictionary<string, bool>(StringComparer.Ordinal);
         private readonly Dictionary<string, IList<string>> _suggestions = new Dictionary<string, IList<string>>(StringComparer.Ordinal);
+        private readonly Stopwatch _suggestTime = new Stopwatch();
 
         public string Id => RuleId;
         public string Name => "Spelling";
+
+        /// <summary>
+        /// Looking up suggestions costs 5-30 ms per unknown word, which adds up to minutes on a large
+        /// project. Past this budget a scan only reports the word; suggestions are then worked out
+        /// when the user selects the finding (see <see cref="ResolveSuggestions"/>).
+        /// </summary>
+        public TimeSpan SuggestBudget { get; set; } = TimeSpan.FromSeconds(4);
 
         public SpellingRule(ISpellChecker spell, IEnumerable<string> customWords, int minWordLength)
         {
@@ -33,34 +43,59 @@ namespace RevitTextQC.Core.Rules
             _minLength = Math.Max(1, minWordLength);
         }
 
+        /// <summary>Starts a fresh suggestion budget; called at the start of every scan.</summary>
+        public void ResetBudget()
+        {
+            _suggestTime.Reset();
+        }
+
         public IEnumerable<QcIssue> Check(TextItem item)
         {
             if (!item.IsProse || string.IsNullOrWhiteSpace(item.Text)) yield break;
 
             var reported = new HashSet<string>(StringComparer.Ordinal);
-            var matches = WordRegex.Matches(item.Text).Cast<Match>().ToList();
-            foreach (var match in matches)
+            foreach (Match match in WordRegex.Matches(item.Text))
             {
                 string word = Clean(match.Value);
                 if (word.Length < _minLength || IsMixedCase(word) || IsKnown(word)) continue;
                 if (!reported.Add(word)) continue;
 
-                var options = Suggest(word).Take(6).Select(o => MatchCase(word, o)).Distinct().ToList();
-
-                yield return new QcIssue
+                var issue = new QcIssue
                 {
                     Item = item,
                     RuleId = Id,
                     RuleName = Name,
                     Severity = Severity.Warning,
                     Word = word,
-                    Alternatives = options,
-                    Suggestion = options.Count > 0 ? ReplaceWord(item.Text, word, options[0]) : null,
-                    Message = options.Count > 0
-                        ? $"\"{word}\" is not in the dictionary. Did you mean: {string.Join(", ", options)}?"
-                        : $"\"{word}\" is not in the dictionary."
+                    Message = $"\"{word}\" is not in the dictionary."
                 };
+
+                if (_suggestions.ContainsKey(word) || _suggestTime.Elapsed < SuggestBudget)
+                    Fill(issue);
+                else
+                    issue.SuggestionsPending = true;
+
+                yield return issue;
             }
+        }
+
+        /// <summary>Works out the suggestions a scan skipped to stay fast.</summary>
+        public void ResolveSuggestions(QcIssue issue)
+        {
+            if (issue == null || !issue.SuggestionsPending || issue.RuleId != Id) return;
+            Fill(issue);
+        }
+
+        private void Fill(QcIssue issue)
+        {
+            issue.SuggestionsPending = false;
+            string word = issue.Word;
+            List<string> options = Suggest(word).Take(MaxAlternatives).Select(o => MatchCase(word, o)).Distinct().ToList();
+            if (options.Count == 0) return;
+
+            issue.Alternatives = options;
+            issue.Suggestion = ReplaceWord(issue.Item.Text, word, options[0]);
+            issue.Message = $"\"{word}\" is not in the dictionary. Did you mean: {string.Join(", ", options)}?";
         }
 
         private static string Clean(string token)
@@ -100,7 +135,9 @@ namespace RevitTextQC.Core.Rules
         private IList<string> Suggest(string word)
         {
             if (_suggestions.TryGetValue(word, out var cached)) return cached;
+
             IList<string> result;
+            _suggestTime.Start();
             try
             {
                 string query = IsAllUpper(word) ? word.ToLowerInvariant() : word;
@@ -109,6 +146,10 @@ namespace RevitTextQC.Core.Rules
             catch (Exception)
             {
                 result = new List<string>();
+            }
+            finally
+            {
+                _suggestTime.Stop();
             }
             _suggestions[word] = result;
             return result;

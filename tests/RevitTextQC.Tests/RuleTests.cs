@@ -189,6 +189,165 @@ namespace RevitTextQC.Tests
         }
     }
 
+    public class AuditRegressionTests
+    {
+        private class SlowSpellChecker : ISpellChecker
+        {
+            public int SuggestCalls;
+            public bool Check(string word) => false;
+            public IList<string> Suggest(string word)
+            {
+                SuggestCalls++;
+                return new List<string> { "fixed" };
+            }
+        }
+
+        [Fact]
+        public void Uppercase_rule_leaves_units_and_codes_alone()
+        {
+            var rule = new CaseRule(new QcSettings());
+            var ok = new TextItem { Source = TextSource.TextNote, Text = "100mm THK SLAB, 25 kN LOAD AT 150 c/c, M12 BOLTS, 20 m²", Editable = true };
+            Assert.Empty(rule.Check(ok));
+
+            var mixed = new TextItem { Source = TextSource.TextNote, Text = "Slab 100mm thk, 25 kN", Editable = true };
+            Assert.Equal("SLAB 100mm THK, 25 kN", Assert.Single(rule.Check(mixed)).Suggestion);
+        }
+
+        [Fact]
+        public void Suggestions_stop_when_the_time_budget_is_spent_and_resolve_on_demand()
+        {
+            var spell = new SlowSpellChecker();
+            var rule = new SpellingRule(spell, null, 3) { SuggestBudget = TimeSpan.Zero };
+            var item = new TextItem { Source = TextSource.TextNote, Text = "abcd efgh", Editable = true };
+
+            List<QcIssue> issues = rule.Check(item).ToList();
+            Assert.Equal(2, issues.Count);
+            Assert.Equal(0, spell.SuggestCalls);
+            Assert.All(issues, i => Assert.True(i.SuggestionsPending));
+            Assert.All(issues, i => Assert.False(i.CanFix));
+
+            rule.ResolveSuggestions(issues[0]);
+            Assert.False(issues[0].SuggestionsPending);
+            Assert.Equal("fixed efgh", issues[0].Suggestion);
+            Assert.Equal(1, spell.SuggestCalls);
+        }
+
+        [Fact]
+        public void Bundled_trade_terms_are_accepted_alongside_custom_words()
+        {
+            var settings = new QcSettings { CheckCase = false, CheckWhitespace = false };
+            settings.CustomWords.Add("soffit");
+            var engine = new QcEngine(settings, new SlowSpellChecker(), new[] { "FFL", "dpc" });
+            var item = new TextItem { Source = TextSource.TextNote, Text = "FFL DPC SOFFIT", Editable = true };
+            Assert.Empty(engine.Run(new[] { item }));
+        }
+
+        private class ThrowingSpellChecker : ISpellChecker
+        {
+            public bool Check(string word) => throw new InvalidOperationException("boom");
+            public IList<string> Suggest(string word) => new List<string>();
+        }
+
+        [Fact]
+        public void A_failing_rule_is_reported_once_and_does_not_stop_the_other_rules()
+        {
+            var engine = new QcEngine(new QcSettings(), new ThrowingSpellChecker());
+            var items = new[]
+            {
+                new TextItem { Source = TextSource.TextNote, Text = "lower case", Editable = true },
+                new TextItem { Source = TextSource.TextNote, Text = "more lower", Editable = true }
+            };
+
+            List<QcIssue> issues = engine.Run(items);
+            Assert.Equal(2, issues.Count(i => i.RuleId == CaseRule.RuleId));
+            Assert.Single(engine.ConfigurationWarnings);
+        }
+
+        [Fact]
+        public void Types_without_a_font_or_size_are_not_reported_against_those_lists()
+        {
+            var settings = new QcSettings();
+            settings.DimensionStandards.AllowedFonts.Add("Arial");
+            settings.DimensionStandards.AllowedSizesMm.Add(2.5);
+            var spot = new TextItem
+            {
+                Source = TextSource.DimensionType, Text = "Spot", UsageCount = 1,
+                Style = new TextStyleInfo { TypeName = "Spot", Font = "", SizeMm = 0, WidthFactor = 1 }
+            };
+            Assert.Empty(new TextStyleRule(settings).Check(spot));
+        }
+
+        [Fact]
+        public void Settings_file_cannot_point_the_dictionary_outside_its_folder_or_smuggle_nulls()
+        {
+            string path = Path.Combine(Path.GetTempPath(), "RevitTextQC.Tests", Guid.NewGuid() + ".json");
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                File.WriteAllText(path, "{\"Language\":\"..\\\\..\\\\evil\",\"TextNoteStandards\":{\"AllowedFonts\":[null,\" Arial \"]}}");
+                var loaded = QcSettings.LoadFrom(path);
+                Assert.Equal("en_US", loaded.Language);
+                Assert.Equal("Arial", Assert.Single(loaded.TextNoteStandards.AllowedFonts));
+                Assert.NotEmpty(loaded.CaseExceptions);
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
+        }
+    }
+
+    public class TextFinderTests
+    {
+        private static StyledElement El(long id, TextSource kind, string type, string font, double size, bool bold = false) =>
+            new StyledElement
+            {
+                ElementId = id, Kind = kind, Text = "t" + id,
+                Style = new TextStyleInfo { TypeName = type, Font = font, SizeMm = size, Bold = bold, WidthFactor = 1 }
+            };
+
+        private static readonly List<StyledElement> Model = new List<StyledElement>
+        {
+            El(1, TextSource.TextNote, "2.5mm Arial", "Arial", 2.5),
+            El(2, TextSource.TextNote, "2.5mm Arial", "Arial", 2.5),
+            El(3, TextSource.TextNote, "3.5mm Romans", "Romans", 3.5, bold: true),
+            El(4, TextSource.Dimension, "Linear 2.5", "Arial", 2.5),
+            El(5, TextSource.Dimension, "Linear 10", "Arial", 10)
+        };
+
+        [Fact]
+        public void Groups_by_size_in_numeric_order_across_text_and_dimensions()
+        {
+            List<FindGroup> groups = TextFinder.Group(Model, FindBy.Size, FindIn.All, new QcSettings());
+            Assert.Equal(new[] { "2.5 mm", "3.5 mm", "10 mm" }, groups.Select(g => g.Label));
+            Assert.Equal(new[] { 3, 1, 1 }, groups.Select(g => g.Count));
+            Assert.All(groups, g => Assert.Null(g.Approved));
+        }
+
+        [Fact]
+        public void Scope_limits_to_text_notes_or_dimensions()
+        {
+            Assert.Equal(2, TextFinder.Group(Model, FindBy.TextType, FindIn.TextNotes, new QcSettings()).Count);
+            Assert.Equal(2, TextFinder.Group(Model, FindBy.TextType, FindIn.Dimensions, new QcSettings()).Count);
+            Assert.Equal(4, TextFinder.Group(Model, FindBy.TextType, FindIn.All, new QcSettings()).Count);
+        }
+
+        [Fact]
+        public void Approval_follows_the_standards_for_each_kind()
+        {
+            var settings = new QcSettings();
+            settings.TextNoteStandards.AllowedFonts.Add("Arial");
+            List<FindGroup> fonts = TextFinder.Group(Model, FindBy.Font, FindIn.All, settings);
+            Assert.True(fonts.Single(g => g.Label == "Arial").Approved);
+            Assert.False(fonts.Single(g => g.Label == "Romans").Approved);
+
+            settings.TextNoteStandards.AllowBold = false;
+            List<FindGroup> styles = TextFinder.Group(Model, FindBy.Style, FindIn.TextNotes, settings);
+            Assert.True(styles.Single(g => g.Label == "Regular").Approved);
+            Assert.False(styles.Single(g => g.Label == "Bold").Approved);
+        }
+    }
+
     public class NamingRuleTests
     {
         [Fact]

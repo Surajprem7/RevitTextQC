@@ -20,6 +20,10 @@ namespace RevitTextQC.Scanning
         private readonly Document _doc;
         private readonly QcSettings _settings;
         private readonly Dictionary<ElementId, string> _viewNames = new Dictionary<ElementId, string>();
+        private readonly Dictionary<ElementId, TextStyleInfo> _styles = new Dictionary<ElementId, TextStyleInfo>();
+
+        /// <summary>Every text note and dimension in scope with its type's style, for the Find tab.</summary>
+        public List<StyledElement> StyledElements { get; } = new List<StyledElement>();
 
         // null = whole project, otherwise the views the scan is limited to.
         private readonly List<ElementId> _viewIds;
@@ -36,8 +40,10 @@ namespace RevitTextQC.Scanning
         public List<TextItem> Collect()
         {
             var items = new List<TextItem>();
-            if (_settings.ScanTextNotes) CollectTextNotes(items);
-            if (_settings.ScanDimensions) CollectDimensions(items);
+            StyledElements.Clear();
+            // Always walked, even when switched off for QC, because the Find tab lists them regardless.
+            CollectTextNotes(_settings.ScanTextNotes ? items : new List<TextItem>());
+            CollectDimensions(_settings.ScanDimensions ? items : new List<TextItem>());
             if (_settings.ScanParameters) CollectParameters(items);
             if (_settings.ScanTags) CollectTags(items);
             if (_settings.ScanSheetsAndViews) CollectSheetsAndViews(items);
@@ -50,6 +56,7 @@ namespace RevitTextQC.Scanning
         public List<TextItem> CollectTypesOnly()
         {
             var items = new List<TextItem>();
+            StyledElements.Clear();
             CollectTextNotes(items);
             CollectDimensions(items);
             return items.Where(i => i.IsType).ToList();
@@ -105,6 +112,7 @@ namespace RevitTextQC.Scanning
                 {
                     ElementId = note.Id.Value,
                     Source = TextSource.TextNote,
+                    TypeId = note.GetTypeId().Value,
                     Location = ViewName(note.OwnerViewId),
                     Editable = true
                 };
@@ -128,6 +136,7 @@ namespace RevitTextQC.Scanning
                 }
 
                 items.Add(item);
+                AddStyledElement(note, TextSource.TextNote, item.Text, item.Location);
             }
             AddTypeItems(items, typeUsage, TextSource.TextNoteType);
         }
@@ -144,16 +153,20 @@ namespace RevitTextQC.Scanning
             {
                 Count(typeUsage, dimension.GetTypeId());
                 string location = ViewName(dimension.OwnerViewId);
+                AddStyledElement(dimension, TextSource.Dimension, DisplayValue(dimension), location);
 
-                int segments = 0;
-                try { segments = dimension.NumberOfSegments; }
+                // A single dimension has no segments and carries the text itself. The count is taken from
+                // the segment array, not NumberOfSegments, so an index can never run past the array.
+                DimensionSegmentArray segmentArray = null;
+                try { segmentArray = dimension.Segments; }
                 catch (Autodesk.Revit.Exceptions.ApplicationException) { }
+                int segments = segmentArray?.Size ?? 0;
 
                 if (segments > 0)
                 {
                     for (int i = 0; i < segments; i++)
                     {
-                        DimensionSegment segment = dimension.Segments.get_Item(i);
+                        DimensionSegment segment = segmentArray.get_Item(i);
                         AddDimensionText(items, dimension, i, location, "Prefix", () => segment.Prefix);
                         AddDimensionText(items, dimension, i, location, "Suffix", () => segment.Suffix);
                         AddDimensionText(items, dimension, i, location, "Above", () => segment.Above);
@@ -173,6 +186,59 @@ namespace RevitTextQC.Scanning
             AddTypeItems(items, typeUsage, TextSource.DimensionType);
         }
 
+        private static string DisplayValue(Dimension dimension)
+        {
+            try
+            {
+                string value = dimension.ValueString;
+                return string.IsNullOrEmpty(value) ? "(dimension)" : value;
+            }
+            catch (Autodesk.Revit.Exceptions.ApplicationException)
+            {
+                return "(dimension)"; // multi-segment and some spot dimensions have no single value
+            }
+        }
+
+        private void AddStyledElement(Element element, TextSource kind, string text, string location)
+        {
+            ElementId typeId = element.GetTypeId();
+            TextStyleInfo style = StyleOf(typeId);
+            if (style == null) return;
+            StyledElements.Add(new StyledElement
+            {
+                ElementId = element.Id.Value,
+                Kind = kind,
+                TypeId = typeId.Value,
+                Text = text,
+                Location = location,
+                Style = style
+            });
+        }
+
+        private TextStyleInfo StyleOf(ElementId typeId)
+        {
+            if (typeId == null || typeId == ElementId.InvalidElementId) return null;
+            if (_styles.TryGetValue(typeId, out TextStyleInfo cached)) return cached;
+
+            TextStyleInfo style = null;
+            if (_doc.GetElement(typeId) is ElementType type)
+            {
+                double sizeFeet = type.get_Parameter(BuiltInParameter.TEXT_SIZE)?.AsDouble() ?? 0;
+                style = new TextStyleInfo
+                {
+                    TypeName = type.Name,
+                    Font = type.get_Parameter(BuiltInParameter.TEXT_FONT)?.AsString() ?? "",
+                    SizeMm = Math.Round(UnitUtils.ConvertFromInternalUnits(sizeFeet, UnitTypeId.Millimeters), 3),
+                    Bold = IsOn(type, BuiltInParameter.TEXT_STYLE_BOLD),
+                    Italic = IsOn(type, BuiltInParameter.TEXT_STYLE_ITALIC),
+                    Underline = IsOn(type, BuiltInParameter.TEXT_STYLE_UNDERLINE),
+                    WidthFactor = type.get_Parameter(BuiltInParameter.TEXT_WIDTH_SCALE)?.AsDouble() ?? 1
+                };
+            }
+            _styles[typeId] = style;
+            return style;
+        }
+
         private static void AddDimensionText(List<TextItem> items, Dimension dimension, int index, string location,
             string field, Func<string> read)
         {
@@ -185,6 +251,7 @@ namespace RevitTextQC.Scanning
             {
                 ElementId = dimension.Id.Value,
                 Source = TextSource.Dimension,
+                TypeId = dimension.GetTypeId().Value,
                 Text = text,
                 Location = location,
                 Field = field,
@@ -202,28 +269,19 @@ namespace RevitTextQC.Scanning
 
         private void AddTypeItems(List<TextItem> items, Dictionary<ElementId, int> usage, TextSource source)
         {
-            foreach (var pair in usage.OrderBy(p => _doc.GetElement(p.Key)?.Name))
+            foreach (var pair in usage.OrderBy(p => StyleOf(p.Key)?.TypeName))
             {
-                if (!(_doc.GetElement(pair.Key) is ElementType type)) continue;
+                TextStyleInfo style = StyleOf(pair.Key);
+                if (style == null) continue;
 
-                double sizeFeet = type.get_Parameter(BuiltInParameter.TEXT_SIZE)?.AsDouble() ?? 0;
                 items.Add(new TextItem
                 {
-                    ElementId = type.Id.Value,
+                    ElementId = pair.Key.Value,
                     Source = source,
-                    Text = type.Name,
+                    Text = style.TypeName,
                     Location = pair.Value == 1 ? "1 instance" : pair.Value + " instances",
                     UsageCount = pair.Value,
-                    Style = new TextStyleInfo
-                    {
-                        TypeName = type.Name,
-                        Font = type.get_Parameter(BuiltInParameter.TEXT_FONT)?.AsString() ?? "",
-                        SizeMm = Math.Round(UnitUtils.ConvertFromInternalUnits(sizeFeet, UnitTypeId.Millimeters), 3),
-                        Bold = IsOn(type, BuiltInParameter.TEXT_STYLE_BOLD),
-                        Italic = IsOn(type, BuiltInParameter.TEXT_STYLE_ITALIC),
-                        Underline = IsOn(type, BuiltInParameter.TEXT_STYLE_UNDERLINE),
-                        WidthFactor = type.get_Parameter(BuiltInParameter.TEXT_WIDTH_SCALE)?.AsDouble() ?? 1
-                    }
+                    Style = style
                 });
             }
         }
@@ -399,7 +457,8 @@ namespace RevitTextQC.Scanning
             TableSectionData data = schedule.GetTableData().GetSectionData(section);
             if (data == null) return;
 
-            int lastRow = Math.Min(data.LastRowNumber, data.FirstRowNumber + maxRows - 1);
+            // long arithmetic: maxRows can be int.MaxValue, which overflowed and silently skipped the section.
+            int lastRow = (int)Math.Min(data.LastRowNumber, (long)data.FirstRowNumber + maxRows - 1);
             for (int row = data.FirstRowNumber; row <= lastRow; row++)
                 for (int column = data.FirstColumnNumber; column <= data.LastColumnNumber; column++)
                     AddScheduleText(items, schedule, schedule.GetCellText(section, row, column), field, seen);

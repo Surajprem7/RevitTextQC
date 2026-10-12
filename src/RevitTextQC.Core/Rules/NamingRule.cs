@@ -39,7 +39,8 @@ namespace RevitTextQC.Core.Rules
             if (string.IsNullOrWhiteSpace(pattern)) return null;
             try
             {
-                return new Regex("^(?:" + pattern.Trim() + ")$", RegexOptions.CultureInvariant);
+                // The timeout stops a badly written pattern from hanging Revit on a long name.
+                return new Regex("^(?:" + pattern.Trim() + ")$", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(250));
             }
             catch (ArgumentException ex)
             {
@@ -54,24 +55,30 @@ namespace RevitTextQC.Core.Rules
             switch (item.Source)
             {
                 case TextSource.SheetNumber:
-                    if (_sheetNumber != null && !_sheetNumber.IsMatch(text))
+                    if (Fails(_sheetNumber, text))
                         yield return Issue(item, Severity.Warning, $"Sheet number \"{text}\" does not follow the sheet numbering pattern.");
                     break;
 
                 case TextSource.SheetName:
-                    if (_sheetName != null && !_sheetName.IsMatch(text))
+                    if (Fails(_sheetName, text))
                         yield return Issue(item, Severity.Warning, $"Sheet name \"{text}\" does not follow the sheet naming pattern.");
                     if (_flagDefaults && string.Equals(text.Trim(), "Unnamed", StringComparison.OrdinalIgnoreCase))
                         yield return Issue(item, Severity.Warning, "Sheet still has the default name \"Unnamed\".");
                     break;
 
                 case TextSource.ViewName:
-                    if (_viewName != null && !_viewName.IsMatch(text))
+                    if (Fails(_viewName, text))
                         yield return Issue(item, Severity.Warning, $"View name \"{text}\" does not follow the view naming pattern.");
                     if (_flagDefaults && DefaultViewName.IsMatch(text.Trim()))
                         yield return Issue(item, Severity.Info, $"View name \"{text}\" looks like a default or copied name.");
                     break;
             }
+        }
+
+        // A pattern that times out is the engine's problem to report (it throws), not a naming finding.
+        private static bool Fails(Regex pattern, string text)
+        {
+            return pattern != null && !pattern.IsMatch(text);
         }
 
         private QcIssue Issue(TextItem item, Severity severity, string message)

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Text;
@@ -91,6 +92,8 @@ namespace RevitTextQC.Core
         [DataMember] public CaseMode SheetNameCase { get; set; }
         [DataMember] public CaseMode ViewNameCase { get; set; }
         [DataMember] public CaseMode ParameterCase { get; set; }
+        /// <summary>Words the case check leaves exactly as typed, such as unit symbols (mm, kN).</summary>
+        [DataMember] public List<string> CaseExceptions { get; set; }
         [DataMember] public bool CheckWhitespace { get; set; }
         [DataMember] public bool CheckForbiddenTerms { get; set; }
         [DataMember] public List<ForbiddenTerm> ForbiddenTerms { get; set; }
@@ -140,6 +143,10 @@ namespace RevitTextQC.Core
             SheetNameCase = CaseMode.Upper;
             ViewNameCase = CaseMode.Any;
             ParameterCase = CaseMode.Any;
+            CaseExceptions = new List<string>
+            {
+                "mm", "cm", "m", "km", "mm²", "m²", "m³", "kg", "kN", "kNm", "kPa", "MPa", "Pa", "c/c"
+            };
             CheckWhitespace = true;
             CheckForbiddenTerms = true;
             ForbiddenTerms = new List<ForbiddenTerm>();
@@ -168,7 +175,10 @@ namespace RevitTextQC.Core
             }
             catch (Exception)
             {
-                // A corrupt settings file must never stop the add-in from starting.
+                // A corrupt settings file must never stop the add-in from starting, but the next save
+                // would overwrite it with defaults, so keep a copy the standards can be recovered from.
+                try { File.Copy(DefaultPath, DefaultPath + ".unreadable", true); }
+                catch (Exception) { }
             }
             return new QcSettings();
         }
@@ -187,33 +197,48 @@ namespace RevitTextQC.Core
 
         public void SaveTo(string path)
         {
+            path = Path.GetFullPath(path);
             Directory.CreateDirectory(Path.GetDirectoryName(path));
-            using (var stream = File.Create(path))
+
+            // Write beside the target and swap, so a crash mid-save cannot leave a half-written file.
+            string temp = path + ".tmp";
+            using (var stream = File.Create(temp))
             using (var writer = JsonReaderWriterFactory.CreateJsonWriter(stream, Encoding.UTF8, false, true))
             {
                 new DataContractJsonSerializer(typeof(QcSettings)).WriteObject(writer, this);
             }
+            if (File.Exists(path)) File.Delete(path);
+            File.Move(temp, path);
         }
 
         // A hand-edited file can contain explicit nulls, which bypass the deserialization defaults.
         private void Normalize()
         {
-            ParameterNames = ParameterNames ?? new List<string>();
-            CustomWords = CustomWords ?? new List<string>();
-            ForbiddenTerms = ForbiddenTerms ?? new List<ForbiddenTerm>();
+            ParameterNames = Clean(ParameterNames);
+            CustomWords = Clean(CustomWords);
+            CaseExceptions = Clean(CaseExceptions);
+            ForbiddenTerms = (ForbiddenTerms ?? new List<ForbiddenTerm>()).Where(t => t != null).ToList();
             TextNoteStandards = TextNoteStandards ?? new TextStandards();
             DimensionStandards = DimensionStandards ?? new TextStandards();
             foreach (var s in new[] { TextNoteStandards, DimensionStandards })
             {
-                s.AllowedTypeNames = s.AllowedTypeNames ?? new List<string>();
-                s.AllowedFonts = s.AllowedFonts ?? new List<string>();
+                s.AllowedTypeNames = Clean(s.AllowedTypeNames);
+                s.AllowedFonts = Clean(s.AllowedFonts);
                 s.AllowedSizesMm = s.AllowedSizesMm ?? new List<double>();
             }
-            if (string.IsNullOrWhiteSpace(Language)) Language = "en_US";
+            // The language becomes part of a file name; a settings file from someone else must not
+            // be able to point it outside the dictionary folder.
+            if (string.IsNullOrWhiteSpace(Language) || !Language.All(ch => char.IsLetterOrDigit(ch) || ch == '_' || ch == '-'))
+                Language = "en_US";
             if (MinWordLength < 1) MinWordLength = 1;
             SheetNumberPattern = SheetNumberPattern ?? "";
             SheetNamePattern = SheetNamePattern ?? "";
             ViewNamePattern = ViewNamePattern ?? "";
+        }
+
+        private static List<string> Clean(List<string> values)
+        {
+            return (values ?? new List<string>()).Where(v => !string.IsNullOrWhiteSpace(v)).Select(v => v.Trim()).ToList();
         }
     }
 }

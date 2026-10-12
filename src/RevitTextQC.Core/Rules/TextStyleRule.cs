@@ -50,14 +50,15 @@ namespace RevitTextQC.Core.Rules
                 yield break;
             }
 
-            if (standards.AllowedFonts.Count > 0 &&
+            // Some dimension kinds carry no font or size of their own; there is nothing to compare then.
+            if (standards.AllowedFonts.Count > 0 && !string.IsNullOrEmpty(style.Font) &&
                 !standards.AllowedFonts.Any(f => string.Equals(f.Trim(), style.Font, StringComparison.OrdinalIgnoreCase)))
             {
                 yield return Issue(item, Severity.Warning,
                     $"Font \"{style.Font}\" is not approved (approved: {string.Join(", ", standards.AllowedFonts)}); {used}.");
             }
 
-            if (standards.AllowedSizesMm.Count > 0 &&
+            if (standards.AllowedSizesMm.Count > 0 && style.SizeMm > 0 &&
                 !standards.AllowedSizesMm.Any(s => Math.Abs(s - style.SizeMm) <= SizeToleranceMm))
             {
                 yield return Issue(item, Severity.Warning,
