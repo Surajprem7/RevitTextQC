@@ -1,4 +1,4 @@
-# Revit Text QC
+﻿# Revit Text QC
 
 A Revit add-in that checks the text in a model before drawings go out: spelling, text types and sizes,
 letter case, spacing, forbidden wording and sheet/view naming. It supports Revit 2024, 2025, 2026 and 2027
@@ -33,10 +33,10 @@ somewhere else (the tagged element, the schedule definition, the keynote file).
 Run this in PowerShell with Revit closed. It installs the latest release for every Revit version on the PC:
 
 ```powershell
-irm https://github.com/YOUR-GITHUB-USER/RevitTextQC/releases/latest/download/install.ps1 -OutFile install.ps1; ./install.ps1
+irm https://github.com/Surajprem7/RevitTextQC/releases/latest/download/install.ps1 -OutFile install.ps1; ./install.ps1
 ```
 
-Or download `RevitTextQC-<year>.zip` from the [releases page](https://github.com/YOUR-GITHUB-USER/RevitTextQC/releases)
+Or download `RevitTextQC-<year>.zip` from the [releases page](https://github.com/Surajprem7/RevitTextQC/releases)
 and extract it into `%APPDATA%\Autodesk\Revit\Addins\<year>\`.
 
 The first time Revit loads the add-in it asks whether to trust it; choose **Always Load**.

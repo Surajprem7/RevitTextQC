@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Installs the latest release of Revit Text QC for every Revit version found on this PC.
     After this first install the add-in keeps itself up to date from GitHub releases.
@@ -9,7 +9,7 @@
 #>
 param(
     [string[]]$RevitVersions,
-    [string]$Repository = 'YOUR-GITHUB-USER/RevitTextQC'
+    [string]$Repository = 'Surajprem7/RevitTextQC'
 )
 
 $ErrorActionPreference = 'Stop'

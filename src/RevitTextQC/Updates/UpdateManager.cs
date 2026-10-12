@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
@@ -16,7 +16,7 @@ namespace RevitTextQC.Updates
     /// <summary>Where releases are published. The release workflow uploads RevitTextQC-&lt;RevitVersion&gt;.zip assets.</summary>
     public static class UpdateConfig
     {
-        public const string Owner = "";
+        public const string Owner = "Surajprem7";
         public const string Repo = "RevitTextQC";
 
         public static bool IsConfigured => Owner.Length > 0;
@@ -315,7 +315,7 @@ namespace RevitTextQC.Updates
         private static string Shorten(string text, int max)
         {
             text = (text ?? "").Trim();
-            return text.Length <= max ? text : text.Substring(0, max) + "…";
+            return text.Length <= max ? text : text.Substring(0, max) + "â€¦";
         }
 
         // ---- installing --------------------------------------------------------------------
