@@ -326,6 +326,20 @@ namespace RevitTextQC.Tests
             var many = new TextItem { Source = TextSource.TextNote, Editable = true, Text = "one two three four five" };
             Assert.Contains("and 2 more", Assert.Single(rule.Check(many)).Message);
         }
+
+        [Fact]
+        public void Spacing_message_says_where_the_space_is_and_where_a_tag_gets_it_from()
+        {
+            var rule = new WhitespaceRule();
+
+            var tag = new TextItem { Source = TextSource.Tag, Text = "FCU-00-22 " };
+            string message = Assert.Single(rule.Check(tag)).Message;
+            Assert.Contains("1 space after the last character", message);
+            Assert.Contains("tag", message, StringComparison.OrdinalIgnoreCase);
+
+            var lead = new TextItem { Source = TextSource.TextNote, Text = "  NOTE", Editable = true };
+            Assert.Contains("2 spaces before the first character", Assert.Single(rule.Check(lead)).Message);
+        }
     }
 
     public class TextFinderTests

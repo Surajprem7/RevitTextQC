@@ -139,6 +139,22 @@ namespace RevitTextQC.Core.Rules
         private static readonly Regex TrailingOnLine = new Regex(@"[ \t]+(?=[\r\n])", RegexOptions.Compiled);
         private static readonly Regex SpaceBeforePunctuation = new Regex(@"(?<=\S) +(?=[,;.](\s|$))", RegexOptions.Compiled);
 
+        private static string Spaces(int count)
+        {
+            return count == 1 ? "1 space" : count + " spaces";
+        }
+
+        // A tag or schedule cell cannot hold typed text: it shows values built from somewhere else,
+        // so say where to look instead of leaving the user hunting for a space they cannot see.
+        private static string SourceHint(TextItem item)
+        {
+            if (item.Source == TextSource.Tag)
+                return " A tag shows text built from its label, so the space is in a value it displays (such as the tagged element's Mark) or in the tag family's label.";
+            if (item.Source == TextSource.Schedule || item.Source == TextSource.Keynote)
+                return " This text comes from another value; fix the space where it comes from.";
+            return "";
+        }
+
         public string Id => RuleId;
         public string Name => "Spacing";
 
@@ -161,7 +177,14 @@ namespace RevitTextQC.Core.Rules
             string fixedText = item.Text;
 
             string trimmed = fixedText.Trim(' ', '\t');
-            if (trimmed != fixedText) { found.Add("leading or trailing spaces"); fixedText = trimmed; }
+            if (trimmed != fixedText)
+            {
+                int lead = fixedText.Length - fixedText.TrimStart(' ', '\t').Length;
+                int trail = fixedText.Length - fixedText.TrimEnd(' ', '\t').Length;
+                if (lead > 0) found.Add(Spaces(lead) + " before the first character");
+                if (trail > 0) found.Add(Spaces(trail) + " after the last character");
+                fixedText = trimmed;
+            }
 
             string noTrailing = TrailingOnLine.Replace(fixedText, "");
             if (noTrailing != fixedText) { found.Add("spaces at the end of a line"); fixedText = noTrailing; }
@@ -181,7 +204,7 @@ namespace RevitTextQC.Core.Rules
                 RuleName = Name,
                 Severity = Severity.Info,
                 Suggestion = fixedText,
-                Message = "Spacing: " + string.Join(", ", found) + "."
+                Message = "Spacing: " + string.Join(", ", found) + "." + SourceHint(item)
             };
         }
     }

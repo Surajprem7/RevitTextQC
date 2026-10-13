@@ -26,6 +26,15 @@ namespace RevitTextQC.UI
         public static string OneLine(string text)
         {
             text = (text ?? "").Replace("\r\n", " ⏎ ").Replace("\r", " ⏎ ").Replace("\n", " ⏎ ");
+
+            // Spaces at the very start or end are invisible; show each one as a dot so they can be seen.
+            int end = text.Length;
+            while (end > 0 && text[end - 1] == ' ') end--;
+            int start = 0;
+            while (start < end && text[start] == ' ') start++;
+            if (start > 0 || end < text.Length)
+                text = new string('·', start) + text.Substring(start, end - start) + new string('·', text.Length - end);
+
             return text.Length > 200 ? text.Substring(0, 200) + "…" : text;
         }
     }
