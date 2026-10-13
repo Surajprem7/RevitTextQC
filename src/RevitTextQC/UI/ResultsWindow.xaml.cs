@@ -97,6 +97,9 @@ namespace RevitTextQC.UI
                     case TextSource.TextNote: return "Text note";
                     case TextSource.Parameter:
                         return Issue.Item.Field == FixApplier.RoomNameField ? "Room name" : "Parameter";
+                    case TextSource.ModelText: return "Model text";
+                    case TextSource.GridName: return "Grid name";
+                    case TextSource.LevelName: return "Level name";
                     case TextSource.SheetNumber: return "Sheet number";
                     case TextSource.SheetName: return "Sheet name";
                     case TextSource.ViewName: return "View name";

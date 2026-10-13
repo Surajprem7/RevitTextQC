@@ -44,9 +44,12 @@ namespace RevitTextQC.Scanning
             // Always walked, even when switched off for QC, because the Find tab lists them regardless.
             CollectTextNotes(_settings.ScanTextNotes ? items : new List<TextItem>());
             CollectDimensions(_settings.ScanDimensions ? items : new List<TextItem>());
+            if (_settings.ScanTextNotes) CollectModelText(items);
             if (_settings.ScanParameters) CollectParameters(items);
             if (_settings.ScanTags) CollectTags(items);
+            if (_settings.ScanTags) CollectSpatialTags(items);
             if (_settings.ScanSheetsAndViews) CollectSheetsAndViews(items);
+            if (_settings.ScanSheetsAndViews) CollectDatumNames(items);
             if (_settings.ScanSchedules) CollectSchedules(items);
             if (_settings.ScanKeynotes && _viewIds == null) CollectKeynotes(items);
             return items;
@@ -149,7 +152,7 @@ namespace RevitTextQC.Scanning
         private void CollectDimensions(List<TextItem> items)
         {
             var typeUsage = new Dictionary<ElementId, int>();
-            foreach (Dimension dimension in Elements(c => c.OfClass(typeof(Dimension))).Cast<Dimension>())
+            foreach (Dimension dimension in AllDimensions())
             {
                 Count(typeUsage, dimension.GetTypeId());
                 string location = ViewName(dimension.OwnerViewId);
@@ -184,6 +187,150 @@ namespace RevitTextQC.Scanning
                 }
             }
             AddTypeItems(items, typeUsage, TextSource.DimensionType);
+        }
+
+        // Spot elevations, coordinates and slopes are Dimension subclasses. Asking for both classes and
+        // removing repeats means they are read whether or not Revit returns subclasses for one class.
+        private IEnumerable<Dimension> AllDimensions()
+        {
+            return Elements(c => c.OfClass(typeof(Dimension))).OfType<Dimension>()
+                .Concat(Elements(c => c.OfClass(typeof(SpotDimension))).OfType<Dimension>())
+                .GroupBy(d => d.Id.Value)
+                .Select(g => g.First());
+        }
+
+        private void CollectModelText(List<TextItem> items)
+        {
+            foreach (ModelText modelText in Elements(c => c.OfClass(typeof(ModelText))).OfType<ModelText>())
+            {
+                string text = modelText.Text;
+                if (string.IsNullOrWhiteSpace(text)) continue;
+                items.Add(new TextItem
+                {
+                    ElementId = modelText.Id.Value,
+                    Source = TextSource.ModelText,
+                    Text = text,
+                    Location = "3D model",
+                    Editable = true
+                });
+            }
+        }
+
+        // The names printed in grid bubbles and level heads.
+        private void CollectDatumNames(List<TextItem> items)
+        {
+            foreach (Element datum in Elements(c => c.OfClass(typeof(Grid))).Concat(Elements(c => c.OfClass(typeof(Level)))))
+            {
+                string name = datum.Name;
+                if (string.IsNullOrWhiteSpace(name)) continue;
+                bool isGrid = datum is Grid;
+                items.Add(new TextItem
+                {
+                    ElementId = datum.Id.Value,
+                    Source = isGrid ? TextSource.GridName : TextSource.LevelName,
+                    Text = name,
+                    Location = isGrid ? "Grids" : "Levels",
+                    Editable = true
+                });
+            }
+        }
+
+        // Room, area and space tags are a different class from the other tags.
+        private void CollectSpatialTags(List<TextItem> items)
+        {
+            var categories = new List<BuiltInCategory>
+            {
+                BuiltInCategory.OST_RoomTags, BuiltInCategory.OST_AreaTags, BuiltInCategory.OST_MEPSpaceTags
+            };
+            foreach (SpatialElementTag tag in Elements(c => c.WherePasses(new ElementMulticategoryFilter(categories))
+                         .WhereElementIsNotElementType()).OfType<SpatialElementTag>())
+            {
+                string text;
+                try { text = tag.TagText; }
+                catch (Autodesk.Revit.Exceptions.ApplicationException) { continue; } // orphaned tag
+
+                if (string.IsNullOrWhiteSpace(text)) continue;
+                items.Add(new TextItem
+                {
+                    ElementId = tag.Id.Value,
+                    Source = TextSource.Tag,
+                    Text = text,
+                    Location = ViewName(tag.OwnerViewId),
+                    Field = tag.Category?.Name,
+                    Editable = false
+                });
+            }
+        }
+
+        // ---- inventory: what kinds of text-bearing items the view holds ----------------------
+
+        private static readonly HashSet<BuiltInCategory> ExtraTextCategories = new HashSet<BuiltInCategory>
+        {
+            BuiltInCategory.OST_ModelText, BuiltInCategory.OST_TitleBlocks
+        };
+
+        /// <summary>
+        /// Every kind of annotation in scope with a count and whether Text QC reads it. This is the
+        /// honest answer to "what lettering is in this view", including what is not checked.
+        /// </summary>
+        public List<CategoryCount> Inventory()
+        {
+            var counts = new Dictionary<string, CategoryCount>(StringComparer.OrdinalIgnoreCase);
+            foreach (Element element in Elements(c => c.WhereElementIsNotElementType()))
+            {
+                Category category = element.Category;
+                if (category == null) continue;
+
+                BuiltInCategory builtIn = category.Id.Value < 0 ? (BuiltInCategory)(int)category.Id.Value : BuiltInCategory.INVALID;
+                bool mayHoldText = category.CategoryType == CategoryType.Annotation || ExtraTextCategories.Contains(builtIn);
+                if (!mayHoldText || builtIn == BuiltInCategory.OST_Lines) continue;
+
+                if (!counts.TryGetValue(category.Name, out CategoryCount entry))
+                {
+                    entry = new CategoryCount { Name = category.Name, Status = StatusFor(builtIn, category.Name) };
+                    counts[category.Name] = entry;
+                }
+                entry.Count++;
+            }
+
+            return counts.Values
+                .OrderBy(c => c.Status.StartsWith("Not", StringComparison.Ordinal) ? 1 : 0)
+                .ThenByDescending(c => c.Count)
+                .ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private string StatusFor(BuiltInCategory category, string name)
+        {
+            string Switch(bool on, string how) => on ? how : "Off in settings";
+
+            switch (category)
+            {
+                case BuiltInCategory.OST_TextNotes:
+                case BuiltInCategory.OST_ModelText:
+                    return Switch(_settings.ScanTextNotes, "Checked");
+
+                case BuiltInCategory.OST_Dimensions:
+                case BuiltInCategory.OST_SpotElevations:
+                case BuiltInCategory.OST_SpotCoordinates:
+                case BuiltInCategory.OST_SpotSlopes:
+                    return Switch(_settings.ScanDimensions, "Checked");
+
+                case BuiltInCategory.OST_Grids:
+                case BuiltInCategory.OST_Levels:
+                    return Switch(_settings.ScanSheetsAndViews, "Checked (names)");
+
+                case BuiltInCategory.OST_GenericAnnotation:
+                case BuiltInCategory.OST_RevisionClouds:
+                    return Switch(_settings.ScanParameters, "Only the parameters listed above");
+
+                case BuiltInCategory.OST_TitleBlocks:
+                    return "Not checked (fields are sheet parameters)";
+            }
+
+            if (name.EndsWith("Tags", StringComparison.OrdinalIgnoreCase) || name.EndsWith("Tag", StringComparison.OrdinalIgnoreCase))
+                return Switch(_settings.ScanTags, "Checked");
+            return "Not checked";
         }
 
         private static string DisplayValue(Dimension dimension)

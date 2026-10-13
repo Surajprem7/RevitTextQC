@@ -51,7 +51,35 @@ namespace RevitTextQC.UI
             var window = new SettingsWindow(typesInModel);
             new WindowInteropHelper(window).Owner = owner != IntPtr.Zero ? owner : app.MainWindowHandle;
             window.LoadFrom(App.Settings);
+
+            // Read now: the dialog is modal, and the Revit API can only be used before it opens.
+            window.ShowInventory(uidoc);
             return window.ShowDialog() == true;
+        }
+
+        private void ShowInventory(RUI.UIDocument uidoc)
+        {
+            if (uidoc == null)
+            {
+                InventoryTitle.Text = "Text in the active view / sheet";
+                InventoryHint.Text = "Open a project to see what the active view contains.";
+                return;
+            }
+
+            try
+            {
+                List<CategoryCount> counts = new TextCollector(uidoc.Document, uidoc.ActiveView, ScanScope.ActiveView, App.Settings)
+                    .Inventory();
+                InventoryGrid.ItemsSource = counts;
+                InventoryTitle.Text = "Text in the active view / sheet: " + uidoc.ActiveView?.Name;
+                InventoryHint.Text = counts.Count == 0
+                    ? "No annotation was found in this view."
+                    : $"{counts.Count} kind(s) of annotation found. Anything marked Not checked is not read by Text QC.";
+            }
+            catch (Exception ex)
+            {
+                InventoryHint.Text = "The active view could not be read: " + ex.Message;
+            }
         }
 
         private void LoadFrom(QcSettings s)

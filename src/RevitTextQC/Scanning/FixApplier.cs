@@ -17,6 +17,17 @@ namespace RevitTextQC.Scanning
             Element element = doc.GetElement(new ElementId(item.ElementId));
             if (element == null) throw new InvalidOperationException("The element no longer exists.");
 
+            if (item.Source == TextSource.GridName || item.Source == TextSource.LevelName)
+            {
+                element.Name = newText;
+                return;
+            }
+            if (item.Source == TextSource.ModelText)
+            {
+                ((ModelText)element).Text = newText;
+                return;
+            }
+
             switch (item.Source)
             {
                 case TextSource.TextNote:

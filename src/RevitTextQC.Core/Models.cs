@@ -14,6 +14,10 @@ namespace RevitTextQC.Core
         SheetNumber,
         SheetName,
         ViewName,
+        /// <summary>3D model text.</summary>
+        ModelText,
+        GridName,
+        LevelName,
         /// <summary>A text note type (style check only).</summary>
         TextNoteType,
         /// <summary>A dimension type (style check only).</summary>
@@ -77,6 +81,14 @@ namespace RevitTextQC.Core
 
         /// <summary>Free text that spelling, whitespace and forbidden-term rules apply to.</summary>
         public bool IsProse => !IsType && Source != TextSource.SheetNumber;
+    }
+
+    /// <summary>One kind of annotation found in a view and whether Text QC reads it.</summary>
+    public class CategoryCount
+    {
+        public string Name { get; set; }
+        public int Count { get; set; }
+        public string Status { get; set; }
     }
 
     public class QcIssue

@@ -33,17 +33,30 @@
         <TabControl>
             <TabItem Header="What to scan">
                 <StackPanel Margin="12">
-                    <CheckBox x:Name="ScanTextNotes" Content="Text notes" />
-                    <CheckBox x:Name="ScanDimensions" Content="Dimension text (prefix, suffix, above, below, value override)" />
-                    <CheckBox x:Name="ScanTags" Content="Tags (displayed tag text)" />
-                    <CheckBox x:Name="ScanSheetsAndViews" Content="Sheet numbers, sheet names and view names" />
+                    <CheckBox x:Name="ScanTextNotes" Content="Text notes and 3D model text" />
+                    <CheckBox x:Name="ScanDimensions" Content="Dimension text, including spot elevations (prefix, suffix, above, below, override)" />
+                    <CheckBox x:Name="ScanTags" Content="Tags, including room, area and space tags (displayed text)" />
+                    <CheckBox x:Name="ScanSheetsAndViews" Content="Sheet numbers, sheet names, view names, grid and level names" />
                     <CheckBox x:Name="ScanSchedules" Content="Schedules (titles and column headings)" />
                     <CheckBox x:Name="ScanScheduleBody" Content="Also check schedule cell values (slower)" Margin="20,3,0,3" />
                     <CheckBox x:Name="ScanKeynotes" Content="Keynote text (entire-project scans only)" />
                     <CheckBox x:Name="KeynotesUsedOnly" Content="Only keynotes assigned to types or materials in this model" Margin="20,3,0,3" />
                     <CheckBox x:Name="ScanParameters" Content="Room, space and area names, plus these text parameters:" Margin="0,10,0,3" />
                     <TextBlock Style="{StaticResource Hint}" Text="One parameter name per line, for example Comments or Description." Margin="20,0,0,4" />
-                    <TextBox x:Name="ParameterNames" Style="{StaticResource List}" Height="90" Margin="20,0,0,0" />
+                    <TextBox x:Name="ParameterNames" Style="{StaticResource List}" Height="56" Margin="20,0,0,0" />
+
+                    <TextBlock x:Name="InventoryTitle" Text="Text in the active view / sheet" FontWeight="SemiBold" Margin="0,14,0,0" />
+                    <TextBlock x:Name="InventoryHint" Style="{StaticResource Hint}"
+                               Text="Every kind of annotation in the view you have open, and whether Text QC reads it." />
+                    <DataGrid x:Name="InventoryGrid" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column"
+                              RowHeaderWidth="0" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#E4E4E4"
+                              Height="200" CanUserAddRows="False" SelectionMode="Single">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Kind of annotation" Binding="{Binding Name, Mode=OneWay}" Width="2*" />
+                            <DataGridTextColumn Header="Elements" Binding="{Binding Count, Mode=OneWay}" Width="70" />
+                            <DataGridTextColumn Header="Text QC" Binding="{Binding Status, Mode=OneWay}" Width="2*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
                 </StackPanel>
             </TabItem>
 

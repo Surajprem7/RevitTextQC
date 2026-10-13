@@ -17,16 +17,21 @@ and keeps itself up to date from this repository's GitHub releases.
 
 ## What it scans
 
-- Text notes
-- Dimension text: prefix, suffix, above, below and value overrides
-- Room, space and area names, and any instance text parameters you list (default: `Comments`)
-- Tags (the displayed tag text)
-- Sheet numbers, sheet names and view names
+- Text notes and 3D model text
+- Dimension text, including spot elevations, coordinates and slopes: prefix, suffix, above, below and overrides
+- Room, space and area names, and any instance text parameters you list (default: `Comments`). Generic
+  annotations and revision clouds are read through this list, because their label text is not exposed by Revit.
+- Tags, including room, area and space tags (the displayed tag text)
+- Sheet numbers, sheet names, view names, grid names and level names
 - Schedule titles and column headings (cell values optional)
 - Keynote text for keynotes assigned in the model (entire-project scans)
 
 Tags, schedules and keynotes are reported but not edited by the add-in, because their text comes from
 somewhere else (the tagged element, the schedule definition, the keynote file).
+
+**What is in this view?** The first tab of **QC Settings** lists every kind of annotation in the active
+view or sheet with a count, and says whether Text QC reads it. Anything marked *Not checked* (title block
+fields, detail items and so on) is not looked at.
 
 ## Install
 
