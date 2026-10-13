@@ -55,14 +55,17 @@
                             <ComboBoxItem Content="Nothing" />
                             <ComboBoxItem Content="Rule" />
                             <ComboBoxItem Content="View / sheet" />
-                            <ComboBoxItem Content="Kind of text" />
+                            <ComboBoxItem Content="Found in" />
                             <ComboBoxItem Content="Level" />
+                            <ComboBoxItem Content="Word / term" />
                         </ComboBox>
                         <Button DockPanel.Dock="Right" Content="Export CSV..." Click="OnExport" Margin="6,0,0,0" />
                     </DockPanel>
 
                     <TextBlock DockPanel.Dock="Top" x:Name="SummaryText" Margin="0,0,0,6" FontWeight="SemiBold"
                                Text="Press Scan to check the model." />
+                    <TextBlock DockPanel.Dock="Top" Margin="0,0,0,6" Foreground="#666"
+                               Text="Click a row to highlight it in Revit. Press Show (or double-click the row) to open its view and zoom to it." />
 
                     <Border DockPanel.Dock="Bottom" BorderBrush="#CCC" BorderThickness="1" Padding="8" Margin="0,8,0,0">
                         <Grid>
@@ -129,11 +132,18 @@
                             </GroupStyle>
                         </DataGrid.GroupStyle>
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Level" Binding="{Binding Severity, Mode=OneWay}" Width="62" />
+                            <DataGridTemplateColumn Header="Show" Width="56">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="Show" Click="OnRowShowClick" Padding="6,0" Margin="2,1" MinWidth="0"
+                                                ToolTip="Open the view this text is in and zoom to it" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridTextColumn Header="Rule" Binding="{Binding Rule, Mode=OneWay}" Width="110" />
                             <DataGridTextColumn Header="Text" Binding="{Binding Text, Mode=OneWay}" Width="2*" />
                             <DataGridTextColumn Header="Finding" Binding="{Binding Message, Mode=OneWay}" Width="3*" />
-                            <DataGridTextColumn Header="Kind" Binding="{Binding Source, Mode=OneWay}" Width="100" />
+                            <DataGridTextColumn Header="Found in" Binding="{Binding Source, Mode=OneWay}" Width="100" />
                             <DataGridTextColumn Header="Where" Binding="{Binding Location, Mode=OneWay}" Width="*" />
                             <DataGridTextColumn Header="Fix" Binding="{Binding FixLabel, Mode=OneWay}" Width="44" />
                             <DataGridTextColumn Header="Element Id" Binding="{Binding ElementId, Mode=OneWay}" Width="80" />

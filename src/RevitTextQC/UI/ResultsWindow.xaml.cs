@@ -47,6 +47,9 @@ namespace RevitTextQC.UI
         public string FixLabel => Issue.CanFix ? "Auto" : Issue.Item.Editable ? "Edit" : "";
         public string Text => Display.OneLine(Issue.Item.Text);
 
+        /// <summary>The misspelled word or forbidden term; used to group the same word across the model.</summary>
+        public string Term => string.IsNullOrEmpty(Issue.Word) ? "(no single word)" : Issue.Word.ToUpperInvariant();
+
         /// <summary>The view, sheet or schedule the text sits in; used to group findings.</summary>
         public string Place
         {
@@ -83,6 +86,8 @@ namespace RevitTextQC.UI
                 switch (Issue.Item.Source)
                 {
                     case TextSource.TextNote: return "Text note";
+                    case TextSource.Parameter:
+                        return Issue.Item.Field == FixApplier.RoomNameField ? "Room name" : "Parameter";
                     case TextSource.SheetNumber: return "Sheet number";
                     case TextSource.SheetName: return "Sheet name";
                     case TextSource.ViewName: return "View name";
@@ -326,6 +331,7 @@ namespace RevitTextQC.UI
                 case 2: property = nameof(IssueRow.Place); break;
                 case 3: property = nameof(IssueRow.Source); break;
                 case 4: property = nameof(IssueRow.Severity); break;
+                case 5: property = nameof(IssueRow.Term); break;
                 default: property = null; break;
             }
             if (_rows.Count > MaxGroupedRows) property = null;
@@ -472,6 +478,17 @@ namespace RevitTextQC.UI
                 List<IssueRow> selected = SelectedRows;
                 if (selected.Count != 1) return;
                 TextItem item = selected[0].Issue.Item;
+                InRevit(uidoc => SetStatus(FixApplier.Show(uidoc, item, true) ?? "Shown in Revit."));
+            });
+        }
+
+        // The per-row Show button: same as Show in Revit, but for the row it sits on.
+        private void OnRowShowClick(object sender, RoutedEventArgs e)
+        {
+            Safely(() =>
+            {
+                if (!((sender as FrameworkElement)?.DataContext is IssueRow row)) return;
+                TextItem item = row.Issue.Item;
                 InRevit(uidoc => SetStatus(FixApplier.Show(uidoc, item, true) ?? "Shown in Revit."));
             });
         }
