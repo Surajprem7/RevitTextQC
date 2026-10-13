@@ -297,6 +297,37 @@ namespace RevitTextQC.Tests
         }
     }
 
+    public class CaseMessageTests
+    {
+        [Fact]
+        public void Dimensions_written_with_a_lowercase_x_are_not_a_case_finding()
+        {
+            var rule = new CaseRule(new QcSettings());
+            var note = new TextItem
+            {
+                Source = TextSource.TextNote, Editable = true,
+                Text = "1 OFF 600x600x100 M5 PANEL FILTERS TO BE MOUNTED IN SLIDE. C/W HINGED ACCESS PANEL"
+            };
+            Assert.Empty(rule.Check(note));
+
+            var spaced = new TextItem { Source = TextSource.TextNote, Editable = true, Text = "600x300 x 125 FILTER SLIDE" };
+            Assert.Empty(rule.Check(spaced));
+        }
+
+        [Fact]
+        public void Message_names_the_words_that_need_changing()
+        {
+            var rule = new CaseRule(new QcSettings());
+            var note = new TextItem { Source = TextSource.TextNote, Editable = true, Text = "PROVIDE concrete SLAB, 600x600 base" };
+            string message = Assert.Single(rule.Check(note)).Message;
+            Assert.Contains("\"concrete\"", message);
+            Assert.DoesNotContain("600x600", message);
+
+            var many = new TextItem { Source = TextSource.TextNote, Editable = true, Text = "one two three four five" };
+            Assert.Contains("and 2 more", Assert.Single(rule.Check(many)).Message);
+        }
+    }
+
     public class TextFinderTests
     {
         private static StyledElement El(long id, TextSource kind, string type, string font, double size, bool bold = false) =>

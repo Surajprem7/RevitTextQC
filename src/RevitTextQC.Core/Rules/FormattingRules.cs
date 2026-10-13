@@ -26,7 +26,11 @@ namespace RevitTextQC.Core.Rules
         public CaseRule(QcSettings settings)
         {
             _settings = settings;
-            _exceptions = new HashSet<string>(settings.CaseExceptions ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
+            _exceptions = new HashSet<string>(settings.CaseExceptions ?? new List<string>(), StringComparer.OrdinalIgnoreCase)
+            {
+                // "600 x 300": a lone x is the multiplication sign between dimensions, never a word to re-case.
+                "x"
+            };
         }
 
         public IEnumerable<QcIssue> Check(TextItem item)
@@ -47,8 +51,25 @@ namespace RevitTextQC.Core.Rules
                 RuleName = Name,
                 Severity = Severity.Warning,
                 Suggestion = expected,
-                Message = $"Text should be {Describe(mode)}."
+                Message = $"Text should be {Describe(mode)}.{Offenders(item.Text, expected)}"
             };
+        }
+
+        // Names the words that break the rule, so nobody has to hunt a long note for one stray lowercase letter.
+        private static string Offenders(string original, string expected)
+        {
+            if (original.Length != expected.Length) return "";
+
+            var words = new List<string>();
+            foreach (Match m in TokenRegex.Matches(original))
+            {
+                if (string.CompareOrdinal(original, m.Index, expected, m.Index, m.Length) == 0) continue;
+                if (!words.Contains(m.Value)) words.Add(m.Value);
+            }
+            if (words.Count == 0) return "";
+
+            string list = string.Join(", ", words.Take(3).Select(w => "\"" + w + "\""));
+            return " Needs changing: " + list + (words.Count > 3 ? " and " + (words.Count - 3) + " more" : "") + ".";
         }
 
         private CaseMode ModeFor(TextSource source)
