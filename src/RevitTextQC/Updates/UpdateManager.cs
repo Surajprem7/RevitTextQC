@@ -21,6 +21,7 @@ namespace RevitTextQC.Updates
 
         public static bool IsConfigured => Owner.Length > 0;
         public static string LatestReleaseApi => $"https://api.github.com/repos/{Owner}/{Repo}/releases/latest";
+        public static string LatestReleasePage => $"https://github.com/{Owner}/{Repo}/releases/latest";
         public static string ReleasesPage => $"https://github.com/{Owner}/{Repo}/releases";
         public static string AssetName(string revitVersion) => $"RevitTextQC-{revitVersion}.zip";
     }
@@ -39,7 +40,6 @@ namespace RevitTextQC.Updates
     /// </summary>
     public static class UpdateManager
     {
-        private static readonly TimeSpan AutoCheckInterval = TimeSpan.FromHours(12);
         private static readonly Lazy<HttpClient> Http = new Lazy<HttpClient>(CreateClient);
 
         private static string UpdatesFolder => Path.Combine(
@@ -47,7 +47,6 @@ namespace RevitTextQC.Updates
 
         private static string StagedFolder => Path.Combine(UpdatesFolder, "staged-" + App.RevitVersion);
         private static string StagedMarker => Path.Combine(UpdatesFolder, "staged-" + App.RevitVersion + ".txt");
-        private static string LastCheckFile => Path.Combine(UpdatesFolder, "last-check.txt");
         private static string LogFile => Path.Combine(UpdatesFolder, "update-" + App.RevitVersion + ".log");
 
         private static HttpClient CreateClient()
@@ -211,16 +210,22 @@ namespace RevitTextQC.Updates
         /// <summary>Non-blocking check when Revit starts. Never throws and never delays startup.</summary>
         public static void StartBackgroundCheck()
         {
-            if (!UpdateConfig.IsConfigured || !App.Settings.AutoCheckUpdates || !DueForCheck()) return;
+            if (!UpdateConfig.IsConfigured || !App.Settings.AutoCheckUpdates) return;
             bool install = App.Settings.AutoInstallUpdates;
 
             Task.Run(async () =>
             {
                 try
                 {
+                    // Every start asks GitHub's website for the newest tag, which is not rate limited. The API
+                    // (60 calls an hour per internet address) is used only once a newer version really exists,
+                    // so a whole office starting Revit at 9 o'clock cannot exhaust it.
+                    Version latest = VersionUtil.Parse(await LatestTagAsync().ConfigureAwait(false));
+                    if (!VersionUtil.IsNewer(latest, App.CurrentVersion)) return;
+                    Version waiting = StagedVersion;
+                    if (waiting != null && !VersionUtil.IsNewer(latest, waiting)) return; // already downloaded
+
                     UpdateCheck check = await CheckAsync().ConfigureAwait(false);
-                    Directory.CreateDirectory(UpdatesFolder);
-                    File.WriteAllText(LastCheckFile, DateTime.UtcNow.ToString("o"));
 
                     if (!check.IsNewer) return;
                     Version staged = StagedVersion;
@@ -245,18 +250,24 @@ namespace RevitTextQC.Updates
             });
         }
 
-        private static bool DueForCheck()
+        /// <summary>Tag of the newest release, read from the redirect of github.com/.../releases/latest.</summary>
+        private static async Task<string> LatestTagAsync()
         {
-            try
+            using (var handler = new HttpClientHandler { AllowAutoRedirect = false })
+            using (var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(15) })
             {
-                if (!File.Exists(LastCheckFile)) return true;
-                DateTime last = DateTime.Parse(File.ReadAllText(LastCheckFile), null,
-                    System.Globalization.DateTimeStyles.RoundtripKind);
-                return DateTime.UtcNow - last > AutoCheckInterval;
-            }
-            catch (Exception)
-            {
-                return true;
+                client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("RevitTextQC", App.CurrentVersion.ToString(3)));
+                using (HttpResponseMessage response = await client.GetAsync(UpdateConfig.LatestReleasePage,
+                           HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false))
+                {
+                    Uri location = response.Headers.Location;
+                    if (location == null) return null;
+
+                    // /owner/repo/releases/tag/v0.2.4
+                    string path = location.AbsolutePath;
+                    int marker = path.LastIndexOf("/tag/", StringComparison.Ordinal);
+                    return marker < 0 ? null : Uri.UnescapeDataString(path.Substring(marker + "/tag/".Length));
+                }
             }
         }
 

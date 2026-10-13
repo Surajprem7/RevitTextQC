@@ -85,7 +85,7 @@ one standard across a team.
 
 ## Updates
 
-When Revit starts, the add-in asks GitHub (at most every 12 hours) whether a newer release exists. If so, it
+Every time Revit starts, the add-in asks GitHub whether a newer release exists. If so, it
 downloads the build for the running Revit version, verifies its checksum and installs it when Revit closes.
 Both behaviours can be switched off in **QC Settings > Updates**, and **Check for Updates** on the ribbon
 checks on demand.
