@@ -162,6 +162,9 @@ namespace RevitTextQC.Updates
                     throw new InvalidDataException("The downloaded package does not contain the add-in.");
 
                 File.WriteAllText(StagedMarker, check.Release.TagName);
+
+                // Start waiting for Revit to end now, so the install happens however Revit ends.
+                LaunchInstaller();
             }
             finally
             {
@@ -210,6 +213,9 @@ namespace RevitTextQC.Updates
         /// <summary>Non-blocking check when Revit starts. Never throws and never delays startup.</summary>
         public static void StartBackgroundCheck()
         {
+            // An update downloaded in an earlier session that was never installed: install it when this one ends.
+            LaunchInstaller();
+
             if (!UpdateConfig.IsConfigured || !App.Settings.AutoCheckUpdates) return;
             bool install = App.Settings.AutoInstallUpdates;
 
@@ -354,39 +360,58 @@ namespace RevitTextQC.Updates
         private static string Shorten(string text, int max)
         {
             text = (text ?? "").Trim();
-            return text.Length <= max ? text : text.Substring(0, max) + "â€¦";
+            return text.Length <= max ? text : text.Substring(0, max) + "…";
         }
 
         // ---- installing --------------------------------------------------------------------
 
-        /// <summary>
-        /// Called when Revit shuts down. Starts a hidden script that waits for this Revit process to exit
-        /// and then copies the staged files over the installed add-in.
-        /// </summary>
+        /// <summary>Called when Revit shuts down cleanly. The installer is normally already waiting; this is the backup.</summary>
         public static void ApplyStagedUpdateOnExit()
+        {
+            LaunchInstaller();
+        }
+
+        private static bool _installerLaunched;
+
+        /// <summary>
+        /// Starts a hidden script that waits for this Revit process to end, however it ends (closed, crashed or
+        /// ended from Task Manager), and then copies the staged files over the installed add-in. It is started
+        /// as soon as an update is downloaded, and at every start while one is still waiting, instead of at
+        /// shutdown, because a shutdown that never completes cleanly would otherwise leave the update uninstalled.
+        /// </summary>
+        private static void LaunchInstaller()
         {
             try
             {
-                if (StagedVersion == null || !InstallLayoutIsStandard) return;
+                if (_installerLaunched || !InstallLayoutIsStandard) return;
+                Version staged = StagedVersion;
+                if (staged == null || !VersionUtil.IsNewer(staged, App.CurrentVersion)) return;
 
                 // Addins\<version>\RevitTextQC\RevitTextQC.dll -> Addins\<version>
                 string installRoot = Path.GetDirectoryName(App.InstallFolder);
                 string mainDll = Path.Combine(App.InstallFolder, "RevitTextQC.dll");
                 string coreDll = Path.Combine(App.InstallFolder, "RevitTextQC.Core.dll");
-                string script = Path.Combine(UpdatesFolder, "apply-" + App.RevitVersion + ".cmd");
                 int pid = Process.GetCurrentProcess().Id;
+
+                // One script per Revit session: cmd reads a script as it runs it, so a script that is still
+                // waiting must never be overwritten. Scripts left by sessions long gone are tidied away.
+                string script = Path.Combine(UpdatesFolder, "apply-" + App.RevitVersion + "-" + pid + ".cmd");
+                foreach (string old in Directory.GetFiles(UpdatesFolder, "apply-" + App.RevitVersion + "*.cmd"))
+                {
+                    try { if (File.GetLastWriteTimeUtc(old) < DateTime.UtcNow.AddDays(-2)) File.Delete(old); }
+                    catch (IOException) { }
+                    catch (UnauthorizedAccessException) { }
+                }
 
                 var cmd = new StringBuilder();
                 cmd.AppendLine("@echo off");
                 cmd.AppendLine("chcp 65001 >nul");
                 cmd.AppendLine("setlocal");
-                cmd.AppendLine("set /a tries=0");
+                // Waits for as long as this Revit session lives.
                 cmd.AppendLine(":wait");
                 cmd.AppendLine($"tasklist /FI \"PID eq {pid}\" /NH 2>nul | find \" {pid} \" >nul");
                 cmd.AppendLine("if errorlevel 1 goto copy");
-                cmd.AppendLine("set /a tries+=1");
-                cmd.AppendLine("if %tries% GEQ 300 goto end");
-                cmd.AppendLine("ping -n 3 127.0.0.1 >nul");
+                cmd.AppendLine("ping -n 11 127.0.0.1 >nul");
                 cmd.AppendLine("goto wait");
                 cmd.AppendLine(":copy");
                 // Another Revit session of the same version can still hold the add-in. Copying then would
@@ -408,6 +433,7 @@ namespace RevitTextQC.Updates
                     UseShellExecute = false,
                     WorkingDirectory = UpdatesFolder
                 });
+                _installerLaunched = true;
             }
             catch (Exception ex)
             {
