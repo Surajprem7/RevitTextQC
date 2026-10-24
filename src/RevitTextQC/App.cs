@@ -66,11 +66,11 @@ namespace RevitTextQC
             RibbonPanel panel = application.CreateRibbonPanel(Title, "Text QC");
             string assembly = typeof(App).Assembly.Location;
 
-            AddButton(panel, assembly, "RunQc", "Run\nText QC", typeof(RunQcCommand), "QC", 0x1E, 0x88, 0x5A,
+            AddButton(panel, assembly, "RunQc", "Run\nText QC", typeof(RunQcCommand), "QC", 0x15, 0x70, 0xEF,
                 "Check spelling, text types and sizes, letter case, spacing and naming in the model.");
-            AddButton(panel, assembly, "Settings", "QC\nSettings", typeof(SettingsCommand), "S", 0x4A, 0x5A, 0x6A,
+            AddButton(panel, assembly, "Settings", "QC\nSettings", typeof(SettingsCommand), "S", 0x47, 0x54, 0x67,
                 "Choose what is scanned and set the office text standards.");
-            AddButton(panel, assembly, "Update", "Check for\nUpdates", typeof(CheckUpdatesCommand), "↑", 0x2F, 0x6F, 0xB5,
+            AddButton(panel, assembly, "Update", "Check for\nUpdates", typeof(CheckUpdatesCommand), "↑", 0x0E, 0x93, 0x84,
                 "Look for a newer version of Text QC on GitHub.");
         }
 

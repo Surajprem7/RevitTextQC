@@ -40,6 +40,12 @@
     <None Update="Dictionaries\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- The shared styles are read at run time from the assembly, not compiled as a page. -->
+  <ItemGroup>
+    <Page Remove="UI\Theme.xaml" />
+    <EmbeddedResource Include="UI\Theme.xaml" />
+  </ItemGroup>
+
   <Target Name="CopyAddinManifest" AfterTargets="Build">
     <Copy SourceFiles="RevitTextQC.addin" DestinationFolder="$(ArtifactsRoot)" SkipUnchangedFiles="true" />
   </Target>

@@ -3,28 +3,30 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Choose views and sheets" Width="560" Height="580" MinWidth="420" MinHeight="380"
         ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
-        FontFamily="Segoe UI" FontSize="12">
-    <DockPanel Margin="10">
+        FontFamily="Segoe UI" FontSize="12" Background="{DynamicResource Bg}" Foreground="{DynamicResource Text}">
+    <DockPanel>
 
-        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-            <TextBlock Text="Search:" VerticalAlignment="Center" Margin="0,0,6,0" />
-            <TextBox x:Name="SearchBox" VerticalContentAlignment="Center" TextChanged="OnSearchChanged" />
-        </DockPanel>
+        <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}"
+                BorderThickness="0,0,0,1" Padding="16,12">
+            <StackPanel>
+                <TextBox x:Name="SearchBox" TextChanged="OnSearchChanged" ToolTip="Search by name" />
+                <TextBlock Margin="0,8,0,0" Style="{StaticResource MutedText}"
+                           Text="Tick the views and sheets to scan. A sheet includes the views placed on it and its title block." />
+            </StackPanel>
+        </Border>
 
-        <TextBlock DockPanel.Dock="Top" Foreground="#666" Margin="0,0,0,6" TextWrapping="Wrap"
-                   Text="Tick the views and sheets to scan. A sheet includes the views placed on it and its title block." />
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}"
+                BorderThickness="0,1,0,0" Padding="16,12">
+            <DockPanel LastChildFill="False">
+                <Button Content="Tick shown" Click="OnTickShown" Margin="0,0,8,0" />
+                <Button Content="Clear" Click="OnClear" />
+                <TextBlock x:Name="CountText" VerticalAlignment="Center" Margin="12,0,0,0" Style="{StaticResource MutedText}" />
+                <Button DockPanel.Dock="Right" Content="Cancel" IsCancel="True" Width="84" Margin="8,0,0,0" />
+                <Button DockPanel.Dock="Right" Content="OK" IsDefault="True" Click="OnOk" Width="84" Style="{StaticResource PrimaryButton}" />
+            </DockPanel>
+        </Border>
 
-        <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0" LastChildFill="False">
-            <Button Content="Tick shown" Click="OnTickShown" Padding="10,4" Margin="0,0,6,0" />
-            <Button Content="Clear" Click="OnClear" Padding="10,4" />
-            <TextBlock x:Name="CountText" VerticalAlignment="Center" Margin="12,0,0,0" Foreground="#666" />
-            <Button DockPanel.Dock="Right" Content="Cancel" IsCancel="True" Width="80" Padding="10,4" Margin="6,0,0,0" />
-            <Button DockPanel.Dock="Right" Content="OK" IsDefault="True" Click="OnOk" Width="80" Padding="10,4" />
-        </DockPanel>
-
-        <DataGrid x:Name="ChoicesGrid" AutoGenerateColumns="False" CanUserAddRows="False" HeadersVisibility="Column"
-                  GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#E4E4E4" RowHeaderWidth="0"
-                  SelectionMode="Single" IsReadOnly="True">
+        <DataGrid x:Name="ChoicesGrid" SelectionMode="Single">
             <DataGrid.Columns>
                 <DataGridTemplateColumn Width="34">
                     <DataGridTemplateColumn.CellTemplate>
@@ -34,8 +36,8 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=OneWay}" Width="*" />
-                <DataGridTextColumn Header="Kind" Binding="{Binding Kind, Mode=OneWay}" Width="130" />
+                <DataGridTextColumn Header="NAME" Binding="{Binding Name, Mode=OneWay}" Width="*" />
+                <DataGridTextColumn Header="KIND" Binding="{Binding Kind, Mode=OneWay}" Width="130" />
             </DataGrid.Columns>
         </DataGrid>
     </DockPanel>

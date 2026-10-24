@@ -26,6 +26,7 @@ namespace RevitTextQC.UI
 
         private SettingsWindow(Func<List<TextItem>> typesInModel)
         {
+            Theme.Apply(this);
             InitializeComponent();
 
             _textNotes = new StandardsEditor("Text notes", TextSource.TextNoteType, typesInModel);

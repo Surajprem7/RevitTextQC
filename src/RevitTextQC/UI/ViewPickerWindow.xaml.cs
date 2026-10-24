@@ -17,6 +17,7 @@ namespace RevitTextQC.UI
 
         public ViewPickerWindow(List<ViewChoice> choices)
         {
+            Theme.Apply(this);
             InitializeComponent();
             _all = choices;
             _view = CollectionViewSource.GetDefaultView(choices);

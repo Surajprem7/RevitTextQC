@@ -3,57 +3,45 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Text QC" Width="1120" Height="680" MinWidth="820" MinHeight="460"
         ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
-        FontFamily="Segoe UI" FontSize="12">
-    <Window.Resources>
-        <Style TargetType="Button">
-            <Setter Property="Padding" Value="10,4" />
-            <Setter Property="Margin" Value="0,0,6,0" />
-            <Setter Property="MinWidth" Value="72" />
-        </Style>
-        <Style TargetType="DataGrid">
-            <Setter Property="AutoGenerateColumns" Value="False" />
-            <Setter Property="IsReadOnly" Value="True" />
-            <Setter Property="HeadersVisibility" Value="Column" />
-            <Setter Property="GridLinesVisibility" Value="Horizontal" />
-            <Setter Property="HorizontalGridLinesBrush" Value="#E4E4E4" />
-            <Setter Property="AlternatingRowBackground" Value="#FAFAFA" />
-            <Setter Property="RowHeaderWidth" Value="0" />
-            <Setter Property="CanUserResizeRows" Value="False" />
-        </Style>
-    </Window.Resources>
-    <DockPanel Margin="10">
+        FontFamily="Segoe UI" FontSize="12" Background="{DynamicResource Bg}" Foreground="{DynamicResource Text}">
+    <DockPanel>
 
         <!-- Scan bar, shared by both tabs -->
-        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8" LastChildFill="False">
-            <TextBlock Text="Scope:" VerticalAlignment="Center" Margin="0,0,6,0" />
-            <ComboBox x:Name="ScopeBox" Width="165" Margin="0,0,6,0" SelectedIndex="0" SelectionChanged="OnScopeChanged">
-                <ComboBoxItem Content="Active view / sheet" />
-                <ComboBoxItem Content="Selected views / sheets" />
-            </ComboBox>
-            <Button x:Name="ChooseButton" Content="Choose..." Click="OnChooseViews" IsEnabled="False" MinWidth="0" Padding="10,4"
-                    ToolTip="Tick the views and sheets to scan." />
-            <TextBlock x:Name="ChosenText" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="#666" />
-            <Button x:Name="ScanButton" Content="Scan" Click="OnScan" FontWeight="SemiBold" />
-            <CheckBox x:Name="HighlightBox" Content="Highlight in Revit when I click a row" IsChecked="True"
-                      VerticalAlignment="Center" Margin="12,0,0,0"
-                      ToolTip="Selects the element in Revit as soon as you click it here. Text on the open sheet is highlighted without leaving the sheet." />
-            <Button DockPanel.Dock="Right" Content="Settings..." Click="OnSettings" Margin="6,0,0,0" />
-        </DockPanel>
+        <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}"
+                BorderThickness="0,0,0,1" Padding="16,12">
+            <DockPanel LastChildFill="False">
+                <ComboBox x:Name="ScopeBox" Width="180" Margin="0,0,8,0" SelectedIndex="0" SelectionChanged="OnScopeChanged">
+                    <ComboBoxItem Content="Active view / sheet" />
+                    <ComboBoxItem Content="Selected views / sheets" />
+                </ComboBox>
+                <Button x:Name="ChooseButton" Content="Choose..." Click="OnChooseViews" IsEnabled="False" Margin="0,0,8,0"
+                        ToolTip="Tick the views and sheets to scan." />
+                <TextBlock x:Name="ChosenText" VerticalAlignment="Center" Margin="0,0,12,0" Style="{StaticResource MutedText}" />
+                <Button x:Name="ScanButton" Content="Scan" Click="OnScan" Style="{StaticResource PrimaryButton}" />
+                <CheckBox x:Name="HighlightBox" Content="Highlight in Revit when I click a row" IsChecked="True"
+                          VerticalAlignment="Center" Margin="18,0,0,0"
+                          ToolTip="Selects the element in Revit as soon as you click it here. Text on the open sheet is highlighted without leaving the sheet." />
+                <Button DockPanel.Dock="Right" Content="Settings" Click="OnSettings" />
+            </DockPanel>
+        </Border>
 
-        <TextBlock x:Name="StatusText" DockPanel.Dock="Bottom" Margin="0,8,0,0" TextWrapping="Wrap"
-                   Foreground="#444" Text="Ready." />
+        <!-- Status bar -->
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}"
+                BorderThickness="0,1,0,0" Padding="16,7">
+            <TextBlock x:Name="StatusText" TextWrapping="Wrap" Style="{StaticResource MutedText}" Text="Ready." />
+        </Border>
 
         <TabControl x:Name="Tabs">
 
             <!-- ============ QC findings ============ -->
             <TabItem Header="QC findings">
-                <DockPanel Margin="8">
-                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8" LastChildFill="False">
-                        <TextBlock Text="Rule:" VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <ComboBox x:Name="RuleBox" Width="190" Margin="0,0,6,0" SelectionChanged="OnFilterChanged" />
-                        <TextBlock Text="Search:" VerticalAlignment="Center" Margin="6,0,6,0" />
-                        <TextBox x:Name="SearchBox" Width="190" VerticalContentAlignment="Center" TextChanged="OnFilterChanged" />
-                        <TextBlock Text="Group by:" VerticalAlignment="Center" Margin="12,0,6,0" />
+                <DockPanel Margin="16,12,16,12">
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10" LastChildFill="False">
+                        <ComboBox x:Name="RuleBox" Width="170" Margin="0,0,8,0" SelectionChanged="OnFilterChanged"
+                                  ToolTip="Show one rule only" />
+                        <TextBox x:Name="SearchBox" Width="200" Margin="0,0,8,0" TextChanged="OnFilterChanged"
+                                 ToolTip="Search the findings" />
+                        <TextBlock Text="Group by" VerticalAlignment="Center" Margin="8,0,6,0" Style="{StaticResource MutedText}" />
                         <ComboBox x:Name="GroupByBox" Width="130" SelectedIndex="3" SelectionChanged="OnGroupByChanged">
                             <ComboBoxItem Content="Nothing" />
                             <ComboBoxItem Content="Rule" />
@@ -62,15 +50,17 @@
                             <ComboBoxItem Content="Level" />
                             <ComboBoxItem Content="Word / term" />
                         </ComboBox>
-                        <Button DockPanel.Dock="Right" Content="Export CSV..." Click="OnExport" Margin="6,0,0,0" />
+                        <Button DockPanel.Dock="Right" Content="Export CSV" Click="OnExport" />
                     </DockPanel>
 
-                    <TextBlock DockPanel.Dock="Top" x:Name="SummaryText" Margin="0,0,0,6" FontWeight="SemiBold"
+                    <TextBlock DockPanel.Dock="Top" x:Name="SummaryText" Margin="0,0,0,2" FontSize="14" FontWeight="SemiBold"
                                Text="Press Scan to check the model." />
-                    <TextBlock DockPanel.Dock="Top" Margin="0,0,0,6" Foreground="#666"
-                               Text="Click a row to highlight it in Revit. Press Show (or double-click the row) to open its view and zoom to it." />
+                    <TextBlock DockPanel.Dock="Top" Margin="0,0,0,10" Style="{StaticResource MutedText}"
+                               Text="Click a row to highlight it in Revit. Press Show, or double-click the row, to open its view and zoom to it." />
 
-                    <Border DockPanel.Dock="Bottom" BorderBrush="#CCC" BorderThickness="1" Padding="8" Margin="0,8,0,0">
+                    <!-- Details of the selected finding -->
+                    <Border DockPanel.Dock="Bottom" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}"
+                            BorderThickness="1" CornerRadius="8" Padding="14,12" Margin="0,12,0,0">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -82,99 +72,118 @@
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
 
-                            <TextBlock x:Name="DetailMessage" Grid.ColumnSpan="2" TextWrapping="Wrap" Margin="0,0,0,6"
-                                       Text="Select a finding to see the details." />
+                            <TextBlock x:Name="DetailMessage" Grid.ColumnSpan="2" TextWrapping="Wrap" Margin="0,0,0,10"
+                                       FontWeight="SemiBold" Text="Select a finding to see the details." />
 
-                            <DockPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,0">
-                                <TextBlock DockPanel.Dock="Top" Text="Corrected text (edit before applying if needed):" Foreground="#666" />
+                            <DockPanel Grid.Row="1" Grid.Column="0" Margin="0,0,14,0">
+                                <TextBlock DockPanel.Dock="Top" Text="Corrected text (edit before applying if needed)" Margin="0,0,0,4"
+                                           Style="{StaticResource MutedText}" />
                                 <TextBox x:Name="FixBox" Height="58" AcceptsReturn="True" TextWrapping="Wrap"
-                                         VerticalScrollBarVisibility="Auto" IsEnabled="False" />
+                                         VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top" IsEnabled="False" />
                             </DockPanel>
 
                             <StackPanel Grid.Row="1" Grid.Column="1" Width="230">
-                                <TextBlock Text="Spelling suggestions:" Foreground="#666" />
+                                <TextBlock Text="Spelling suggestions" Margin="0,0,0,4" Style="{StaticResource MutedText}" />
                                 <ComboBox x:Name="AlternativesBox" IsEnabled="False" SelectionChanged="OnAlternativeChosen" />
                                 <Button x:Name="AddWordButton" Content="Add word to dictionary" Click="OnAddWord"
                                         Margin="0,8,0,0" IsEnabled="False" />
                             </StackPanel>
 
-                            <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,8,0,0">
-                                <Button x:Name="ShowButton" Content="Show in Revit" Click="OnShow" IsEnabled="False"
+                            <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,12,0,0">
+                                <Button x:Name="ShowButton" Content="Show in Revit" Click="OnShow" IsEnabled="False" Margin="0,0,8,0"
                                         ToolTip="Opens the view the element is in and zooms to it." />
-                                <Button x:Name="ApplyButton" Content="Apply fix" Click="OnApply" IsEnabled="False" />
+                                <Button x:Name="ApplyButton" Content="Apply fix" Click="OnApply" IsEnabled="False" Margin="0,0,8,0"
+                                        Style="{StaticResource PrimaryButton}" />
                                 <Button x:Name="FixSelectedButton" Content="Fix all selected" Click="OnFixSelected" IsEnabled="False"
                                         ToolTip="Applies the first suggestion to every selected finding that has one." />
                             </StackPanel>
                         </Grid>
                     </Border>
 
-                    <DataGrid x:Name="IssuesGrid" SelectionMode="Extended"
-                              VirtualizingPanel.IsVirtualizingWhenGrouping="True"
-                              SelectionChanged="OnSelectionChanged" MouseDoubleClick="OnGridDoubleClick">
-                        <DataGrid.GroupStyle>
-                            <GroupStyle>
-                                <GroupStyle.ContainerStyle>
-                                    <Style TargetType="GroupItem">
-                                        <Setter Property="Template">
-                                            <Setter.Value>
-                                                <ControlTemplate TargetType="GroupItem">
-                                                    <Expander IsExpanded="True" Margin="0,2,0,2">
-                                                        <Expander.Header>
-                                                            <StackPanel Orientation="Horizontal">
-                                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
-                                                                <TextBlock Text="{Binding ItemCount, StringFormat='   {0} finding(s)'}" Foreground="#666" />
-                                                            </StackPanel>
-                                                        </Expander.Header>
-                                                        <ItemsPresenter />
-                                                    </Expander>
-                                                </ControlTemplate>
-                                            </Setter.Value>
-                                        </Setter>
-                                    </Style>
-                                </GroupStyle.ContainerStyle>
-                            </GroupStyle>
-                        </DataGrid.GroupStyle>
-                        <DataGrid.Columns>
-                            <!-- Fixed widths only: with a stretch column the grid squeezes every other column. -->
-                            <DataGridTextColumn Header="Error in the text" Binding="{Binding Problem, Mode=OneWay}" Width="150" />
-                            <DataGridTextColumn Header="Suggestion" Binding="{Binding Suggestion, Mode=OneWay}" Width="150" />
-                            <DataGridTextColumn Header="Element Id" Binding="{Binding ElementId, Mode=OneWay}" Width="85" />
-                            <DataGridTemplateColumn Header="Show" Width="62" MinWidth="62" MaxWidth="62">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <Button Content="Show" Click="OnRowShowClick" Padding="6,0" Margin="2,1" MinWidth="0"
-                                                ToolTip="Open the view this text is in and zoom to it" />
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                            <DataGridTextColumn Header="Rule" Binding="{Binding Rule, Mode=OneWay}" Width="100" />
-                            <DataGridTextColumn Header="Full text" Binding="{Binding Text, Mode=OneWay}" Width="230" />
-                            <DataGridTextColumn Header="Finding" Binding="{Binding Message, Mode=OneWay}" Width="300" />
-                            <DataGridTextColumn Header="Found in" Binding="{Binding Source, Mode=OneWay}" Width="100" />
-                            <DataGridTextColumn Header="Where" Binding="{Binding Location, Mode=OneWay}" Width="260" />
-                        </DataGrid.Columns>
-                    </DataGrid>
+                    <Grid>
+                    <Border BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
+                        <DataGrid x:Name="IssuesGrid" SelectionMode="Extended"
+                                  VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                                  SelectionChanged="OnSelectionChanged" MouseDoubleClick="OnGridDoubleClick">
+                            <DataGrid.GroupStyle>
+                                <GroupStyle>
+                                    <GroupStyle.ContainerStyle>
+                                        <Style TargetType="GroupItem">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="GroupItem">
+                                                        <Expander IsExpanded="True">
+                                                            <Expander.Header>
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                                                    <TextBlock Text="{Binding ItemCount, StringFormat='   {0} finding(s)'}"
+                                                                               Foreground="{DynamicResource Muted}" />
+                                                                </StackPanel>
+                                                            </Expander.Header>
+                                                            <ItemsPresenter />
+                                                        </Expander>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </GroupStyle.ContainerStyle>
+                                </GroupStyle>
+                            </DataGrid.GroupStyle>
+                            <DataGrid.Columns>
+                                <!-- Fixed widths only: with a stretch column the grid squeezes every other column. -->
+                                <DataGridTextColumn Header="ERROR IN THE TEXT" Binding="{Binding Problem, Mode=OneWay}" Width="150" />
+                                <DataGridTextColumn Header="SUGGESTION" Binding="{Binding Suggestion, Mode=OneWay}" Width="150" />
+                                <DataGridTextColumn Header="ELEMENT ID" Binding="{Binding ElementId, Mode=OneWay}" Width="90" />
+                                <DataGridTemplateColumn Header="" Width="70" MinWidth="70" MaxWidth="70">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Content="Show" Click="OnRowShowClick" Padding="10,0" MinHeight="24" Margin="0"
+                                                    Style="{StaticResource LinkButton}"
+                                                    ToolTip="Open the view this text is in and zoom to it" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="RULE" Binding="{Binding Rule, Mode=OneWay}" Width="100" />
+                                <DataGridTextColumn Header="FULL TEXT" Binding="{Binding Text, Mode=OneWay}" Width="230" />
+                                <DataGridTextColumn Header="FINDING" Binding="{Binding Message, Mode=OneWay}" Width="300" />
+                                <DataGridTextColumn Header="FOUND IN" Binding="{Binding Source, Mode=OneWay}" Width="100" />
+                                <DataGridTextColumn Header="WHERE" Binding="{Binding Location, Mode=OneWay}" Width="260" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+
+                    <!-- Shown in place of the list before a scan, while scanning, and when nothing was found -->
+                    <Border x:Name="EmptyState" Background="{DynamicResource Bg}" CornerRadius="8" Margin="1" IsHitTestVisible="False">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="420">
+                            <Ellipse x:Name="EmptyBadge" Width="44" Height="44" Fill="{DynamicResource AccentSoft}" Margin="0,0,0,12" />
+                            <TextBlock x:Name="EmptyTitle" Text="Ready to scan" FontSize="15" FontWeight="SemiBold"
+                                       HorizontalAlignment="Center" />
+                            <TextBlock x:Name="EmptyText" Style="{StaticResource MutedText}" TextAlignment="Center" Margin="0,4,0,0"
+                                       Text="Choose a scope and press Scan. Findings will be listed here." />
+                        </StackPanel>
+                    </Border>
+                    </Grid>
                 </DockPanel>
             </TabItem>
 
             <!-- ============ Find text by type / size / font / style ============ -->
             <TabItem Header="Find text">
-                <DockPanel Margin="8">
-                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8" LastChildFill="False">
-                        <TextBlock Text="Find by:" VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <ComboBox x:Name="FindByBox" Width="130" Margin="0,0,6,0" SelectedIndex="0" SelectionChanged="OnFindOptionsChanged">
+                <DockPanel Margin="16,12,16,12">
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10" LastChildFill="False">
+                        <TextBlock Text="Find by" VerticalAlignment="Center" Margin="0,0,6,0" Style="{StaticResource MutedText}" />
+                        <ComboBox x:Name="FindByBox" Width="150" Margin="0,0,8,0" SelectedIndex="0" SelectionChanged="OnFindOptionsChanged">
                             <ComboBoxItem Content="Text type" />
                             <ComboBoxItem Content="Text size" />
                             <ComboBoxItem Content="Font" />
                             <ComboBoxItem Content="Style (bold, italic...)" />
                         </ComboBox>
-                        <TextBlock Text="In:" VerticalAlignment="Center" Margin="10,0,6,0" />
-                        <ComboBox x:Name="FindInBox" Width="190" Margin="0,0,6,0" SelectedIndex="0" SelectionChanged="OnFindOptionsChanged">
+                        <TextBlock Text="in" VerticalAlignment="Center" Margin="8,0,6,0" Style="{StaticResource MutedText}" />
+                        <ComboBox x:Name="FindInBox" Width="190" Margin="0,0,8,0" SelectedIndex="0" SelectionChanged="OnFindOptionsChanged">
                             <ComboBoxItem Content="Text notes and dimensions" />
                             <ComboBoxItem Content="Text notes only" />
                             <ComboBoxItem Content="Dimensions only" />
                         </ComboBox>
-                        <CheckBox x:Name="NotApprovedBox" Content="Only show not approved" VerticalAlignment="Center" Margin="10,0,0,0"
+                        <CheckBox x:Name="NotApprovedBox" Content="Only show not approved" VerticalAlignment="Center" Margin="12,0,0,0"
                                   Checked="OnFindOptionsChanged" Unchecked="OnFindOptionsChanged"
                                   ToolTip="Compares against the approved lists in Settings > Text type &amp; size." />
                     </DockPanel>
@@ -182,47 +191,53 @@
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="340" MinWidth="220" />
-                            <ColumnDefinition Width="6" />
+                            <ColumnDefinition Width="12" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
 
                         <!-- What is used in the model -->
                         <DockPanel Grid.Column="0">
-                            <TextBlock DockPanel.Dock="Top" x:Name="GroupsCaption" Text="Used in the model" Foreground="#666" Margin="0,0,0,4" />
-                            <DataGrid x:Name="GroupsGrid" SelectionMode="Single" SelectionChanged="OnGroupSelected">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Value" Binding="{Binding Label, Mode=OneWay}" Width="*" />
-                                    <DataGridTextColumn Header="Count" Binding="{Binding Count, Mode=OneWay}" Width="56" />
-                                    <DataGridTextColumn Header="Standard" Binding="{Binding Standard, Mode=OneWay}" Width="92" />
-                                </DataGrid.Columns>
-                            </DataGrid>
+                            <TextBlock DockPanel.Dock="Top" x:Name="GroupsCaption" Text="Used in the model" Margin="0,0,0,6"
+                                       Style="{StaticResource MutedText}" />
+                            <Border BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
+                                <DataGrid x:Name="GroupsGrid" SelectionMode="Single" SelectionChanged="OnGroupSelected">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="VALUE" Binding="{Binding Label, Mode=OneWay}" Width="*" />
+                                        <DataGridTextColumn Header="COUNT" Binding="{Binding Count, Mode=OneWay}" Width="60" />
+                                        <DataGridTextColumn Header="STANDARD" Binding="{Binding Standard, Mode=OneWay}" Width="92" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Border>
                         </DockPanel>
 
-                        <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch" Background="Transparent" />
+                        <GridSplitter Grid.Column="1" Width="12" HorizontalAlignment="Stretch" Background="Transparent" />
 
                         <!-- The elements using the selected value -->
                         <DockPanel Grid.Column="2">
                             <TextBlock DockPanel.Dock="Top" x:Name="ElementsCaption" Text="Select a value on the left to list the text using it."
-                                       Foreground="#666" Margin="0,0,0,4" />
-                            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,8,0,0">
+                                       Margin="0,0,0,6" Style="{StaticResource MutedText}" />
+                            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,10,0,0">
                                 <Button x:Name="SelectGroupButton" Content="Select all in Revit" Click="OnSelectGroup" IsEnabled="False"
+                                        Margin="0,0,8,0"
                                         ToolTip="Selects every listed element in Revit, so you can change their type in the Type Selector." />
                                 <Button x:Name="ShowElementButton" Content="Show in Revit" Click="OnShowElement" IsEnabled="False"
                                         ToolTip="Opens the view the selected element is in and zooms to it." />
                             </StackPanel>
-                            <DataGrid x:Name="ElementsGrid" SelectionMode="Extended"
-                                      SelectionChanged="OnElementSelected" MouseDoubleClick="OnElementDoubleClick">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Text" Binding="{Binding Text, Mode=OneWay}" Width="220" />
-                                    <DataGridTextColumn Header="Kind" Binding="{Binding Kind, Mode=OneWay}" Width="80" />
-                                    <DataGridTextColumn Header="Type" Binding="{Binding TypeName, Mode=OneWay}" Width="170" />
-                                    <DataGridTextColumn Header="Size" Binding="{Binding Size, Mode=OneWay}" Width="62" />
-                                    <DataGridTextColumn Header="Font" Binding="{Binding Font, Mode=OneWay}" Width="90" />
-                                    <DataGridTextColumn Header="Style" Binding="{Binding Style, Mode=OneWay}" Width="80" />
-                                    <DataGridTextColumn Header="Where" Binding="{Binding Location, Mode=OneWay}" Width="220" />
-                                    <DataGridTextColumn Header="Element Id" Binding="{Binding ElementId, Mode=OneWay}" Width="80" />
-                                </DataGrid.Columns>
-                            </DataGrid>
+                            <Border BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
+                                <DataGrid x:Name="ElementsGrid" SelectionMode="Extended"
+                                          SelectionChanged="OnElementSelected" MouseDoubleClick="OnElementDoubleClick">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="TEXT" Binding="{Binding Text, Mode=OneWay}" Width="220" />
+                                        <DataGridTextColumn Header="KIND" Binding="{Binding Kind, Mode=OneWay}" Width="80" />
+                                        <DataGridTextColumn Header="TYPE" Binding="{Binding TypeName, Mode=OneWay}" Width="170" />
+                                        <DataGridTextColumn Header="SIZE" Binding="{Binding Size, Mode=OneWay}" Width="62" />
+                                        <DataGridTextColumn Header="FONT" Binding="{Binding Font, Mode=OneWay}" Width="90" />
+                                        <DataGridTextColumn Header="STYLE" Binding="{Binding Style, Mode=OneWay}" Width="80" />
+                                        <DataGridTextColumn Header="WHERE" Binding="{Binding Location, Mode=OneWay}" Width="220" />
+                                        <DataGridTextColumn Header="ELEMENT ID" Binding="{Binding ElementId, Mode=OneWay}" Width="90" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Border>
                         </DockPanel>
                     </Grid>
                 </DockPanel>

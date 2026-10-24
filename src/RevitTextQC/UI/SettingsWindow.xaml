@@ -3,32 +3,26 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Text QC Settings" Width="720" Height="690" MinWidth="620" MinHeight="520"
         ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
-        FontFamily="Segoe UI" FontSize="12">
+        FontFamily="Segoe UI" FontSize="12" Background="{DynamicResource Bg}" Foreground="{DynamicResource Text}">
     <Window.Resources>
-        <Style TargetType="CheckBox">
-            <Setter Property="Margin" Value="0,3" />
+        <Style x:Key="Hint" TargetType="TextBlock" BasedOn="{StaticResource MutedText}">
+            <Setter Property="Margin" Value="0,2,0,8" />
         </Style>
-        <Style x:Key="Hint" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#666" />
-            <Setter Property="TextWrapping" Value="Wrap" />
-            <Setter Property="Margin" Value="0,2,0,6" />
-        </Style>
-        <Style x:Key="List" TargetType="TextBox">
-            <Setter Property="AcceptsReturn" Value="True" />
-            <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
-            <Setter Property="TextWrapping" Value="NoWrap" />
-        </Style>
+        <Style x:Key="List" TargetType="TextBox" BasedOn="{StaticResource ListText}" />
     </Window.Resources>
-    <DockPanel Margin="10">
+    <DockPanel>
 
-        <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0" LastChildFill="False">
-            <Button Content="Import..." Width="80" Click="OnImport" Margin="0,0,6,0"
-                    ToolTip="Load settings from a file, for example the office standard." />
-            <Button Content="Export..." Width="80" Click="OnExport"
-                    ToolTip="Save these settings to a file to share with the team." />
-            <Button DockPanel.Dock="Right" Content="Cancel" Width="80" IsCancel="True" Margin="6,0,0,0" />
-            <Button DockPanel.Dock="Right" Content="OK" Width="80" IsDefault="True" Click="OnOk" />
-        </DockPanel>
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}"
+                BorderThickness="0,1,0,0" Padding="16,12">
+            <DockPanel LastChildFill="False">
+                <Button Content="Import" Width="84" Click="OnImport" Margin="0,0,8,0"
+                        ToolTip="Load settings from a file, for example the office standard." />
+                <Button Content="Export" Width="84" Click="OnExport"
+                        ToolTip="Save these settings to a file to share with the team." />
+                <Button DockPanel.Dock="Right" Content="Cancel" Width="84" IsCancel="True" Margin="8,0,0,0" />
+                <Button DockPanel.Dock="Right" Content="OK" Width="84" IsDefault="True" Click="OnOk" Style="{StaticResource PrimaryButton}" />
+            </DockPanel>
+        </Border>
 
         <TabControl>
             <TabItem Header="What to scan">
@@ -50,18 +44,18 @@
                     <TextBlock Style="{StaticResource Hint}" Text="One parameter name per line, for example Comments or Description." Margin="20,0,0,4" />
                     <TextBox x:Name="ParameterNames" Style="{StaticResource List}" Height="56" Margin="20,0,0,0" />
 
-                    <TextBlock x:Name="InventoryTitle" Text="Text in the active view / sheet" FontWeight="SemiBold" Margin="0,14,0,0" />
+                    <TextBlock x:Name="InventoryTitle" Text="Text in the active view / sheet" Style="{StaticResource SectionTitle}" />
                     <TextBlock x:Name="InventoryHint" Style="{StaticResource Hint}"
                                Text="Every kind of annotation in the view you have open, and whether Text QC reads it." />
-                    <DataGrid x:Name="InventoryGrid" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column"
-                              RowHeaderWidth="0" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#E4E4E4"
-                              Height="110" CanUserAddRows="False" SelectionMode="Single">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Kind of annotation" Binding="{Binding Name, Mode=OneWay}" Width="2*" />
-                            <DataGridTextColumn Header="Elements" Binding="{Binding Count, Mode=OneWay}" Width="70" />
-                            <DataGridTextColumn Header="Text QC" Binding="{Binding Status, Mode=OneWay}" Width="2*" />
-                        </DataGrid.Columns>
-                    </DataGrid>
+                    <Border BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
+                        <DataGrid x:Name="InventoryGrid" Height="110" SelectionMode="Single">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="KIND OF ANNOTATION" Binding="{Binding Name, Mode=OneWay}" Width="2*" />
+                                <DataGridTextColumn Header="ELEMENTS" Binding="{Binding Count, Mode=OneWay}" Width="80" />
+                                <DataGridTextColumn Header="TEXT QC" Binding="{Binding Status, Mode=OneWay}" Width="2*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
                 </StackPanel>
             </TabItem>
 

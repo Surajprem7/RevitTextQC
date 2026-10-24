@@ -187,8 +187,9 @@ namespace RevitTextQC.UI
 
         public ResultsWindow()
         {
+            Theme.Apply(this);
             InitializeComponent();
-            _view = CollectionViewSource.GetDefaultView(_rows);
+            _view =CollectionViewSource.GetDefaultView(_rows);
             _view.Filter = Matches;
             IssuesGrid.ItemsSource = _view;
             _ready = true;
@@ -232,6 +233,28 @@ namespace RevitTextQC.UI
             StatusText.Text = text;
         }
 
+        // The message that stands in for the findings list when there is nothing to list.
+        private void ShowEmpty(string title, string text, bool good = false)
+        {
+            EmptyTitle.Text = title;
+            EmptyText.Text = text;
+            EmptyBadge.Fill = TryFindResource(good ? "GoodSoft" : "AccentSoft") as System.Windows.Media.Brush;
+            EmptyState.Visibility = Visibility.Visible;
+        }
+
+        private void HideEmpty()
+        {
+            EmptyState.Visibility = Visibility.Collapsed;
+        }
+
+        // Revit is busy while a scan runs, so draw the "scanning" message before starting it.
+        private void ShowScanning()
+        {
+            ShowEmpty("Scanning...", "Revit is busy for a few seconds. The findings appear here when it is done.");
+            SetStatus("Scanning...");
+            Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Render);
+        }
+
         // ---- scanning ----------------------------------------------------------------------
 
         private void Scan(RUI.UIApplication app)
@@ -256,6 +279,7 @@ namespace RevitTextQC.UI
             }
 
             Mouse.OverrideCursor = Cursors.Wait;
+            ShowScanning();
             try
             {
                 var watch = Stopwatch.StartNew();
@@ -410,9 +434,11 @@ namespace RevitTextQC.UI
             if (_doc == null) return;
             if (_rows.Count == 0)
             {
-                SummaryText.Text = "No findings. The scanned text passes every enabled check.";
+                SummaryText.Text = "No findings";
+                ShowEmpty("All clear", "The scanned text passes every enabled check.", good: true);
                 return;
             }
+            HideEmpty();
 
             IEnumerable<string> levels = _rows.GroupBy(r => r.Issue.Severity).OrderByDescending(g => g.Key)
                 .Select(g => $"{g.Count()} {g.Key}");
