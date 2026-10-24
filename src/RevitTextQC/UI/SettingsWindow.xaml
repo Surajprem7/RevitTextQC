@@ -68,9 +68,11 @@
             <TabItem Header="Spelling">
                 <DockPanel Margin="12">
                     <CheckBox DockPanel.Dock="Top" x:Name="CheckSpelling" Content="Check spelling" />
+                    <TextBlock DockPanel.Dock="Top" Style="{StaticResource Hint}" Margin="0,2,0,2"
+                               Text="Pick the language the client expects: United Kingdom suits most UAE and Saudi clients, Australia suits Australian clients (it also treats 'programme' as a mistake), United States suits American ones. The choice is remembered for each project, so moving between your Dubai, Saudi and Australian projects needs no changes. A new project starts with the language you chose last." />
                     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,6">
-                        <TextBlock Text="Dictionary:" VerticalAlignment="Center" Width="150" />
-                        <ComboBox x:Name="LanguageBox" Width="140" />
+                        <TextBlock Text="Spelling language:" VerticalAlignment="Center" Width="150" />
+                        <ComboBox x:Name="LanguageBox" Width="220" DisplayMemberPath="Label" SelectedValuePath="Code" />
                     </StackPanel>
                     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,6">
                         <TextBlock Text="Ignore words shorter than:" VerticalAlignment="Center" Width="150" />

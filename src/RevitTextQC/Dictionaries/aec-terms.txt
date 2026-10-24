@@ -161,6 +161,12 @@ prestressed
 posttensioned
 
 # Architecture and finishes
+rainscreen
+rainscreens
+firestopping
+firestop
+downpipe
+downpipes
 plasterboard
 gypsum
 skirting

@@ -179,6 +179,7 @@ namespace RevitTextQC.UI
         private readonly ICollectionView _view;
         private readonly bool _ready;
         private DB.Document _doc;
+        private string _projectKey;
         private QcEngine _engine;
         private List<TextItem> _items = new List<TextItem>();
         private List<StyledElement> _styled = new List<StyledElement>();
@@ -262,8 +263,9 @@ namespace RevitTextQC.UI
                     ? new TextCollector(doc, chosen, App.Settings)
                     : new TextCollector(doc, uidoc.ActiveView, ScanScope.ActiveView, App.Settings);
                 _items = collector.Collect();
+                _projectKey = doc.ProjectInformation.UniqueId; // each project keeps its own spelling language
                 _styled = collector.StyledElements.ToList();
-                _engine = ScanService.CreateEngine(App.Settings);
+                _engine = ScanService.CreateEngine(App.Settings, _projectKey);
                 List<QcIssue> issues = _engine.Run(_items);
                 _doc = doc;
 
@@ -710,7 +712,7 @@ namespace RevitTextQC.UI
                         App.Settings.CustomWords.Add(word);
                 App.Settings.Save();
 
-                _engine = ScanService.CreateEngine(App.Settings);
+                _engine = ScanService.CreateEngine(App.Settings, _projectKey);
                 var accepted = new HashSet<string>(words, StringComparer.OrdinalIgnoreCase);
                 foreach (IssueRow row in _rows.Where(r => r.Issue.RuleId == SpellingRule.RuleId && r.Issue.Word != null &&
                                                           accepted.Contains(r.Issue.Word)).ToList())
@@ -879,14 +881,15 @@ namespace RevitTextQC.UI
 
         public static string DictionaryFolder => Path.Combine(App.InstallFolder, "Dictionaries");
 
-        public static QcEngine CreateEngine(QcSettings settings)
+        /// <param name="projectKey">The open project, so its own spelling language is used (null for the default).</param>
+        public static QcEngine CreateEngine(QcSettings settings, string projectKey = null)
         {
             ISpellChecker spell = null;
             if (settings.CheckSpelling)
             {
                 try
                 {
-                    spell = HunspellSpellChecker.Load(DictionaryFolder, settings.Language);
+                    spell = HunspellSpellChecker.Load(DictionaryFolder, settings.LanguageFor(projectKey));
                 }
                 catch (Exception)
                 {
@@ -903,11 +906,13 @@ namespace RevitTextQC.UI
             var terms = new List<string>();
             try
             {
-                string file = Path.Combine(DictionaryFolder, "aec-terms.txt");
-                if (File.Exists(file))
-                    terms = File.ReadAllLines(file).Select(l => l.Trim()).Where(l => l.Length > 0 && !l.StartsWith("#")).ToList();
+                // aec-terms.txt (building abbreviations and trade words) and region-terms.txt (Gulf and Australian
+                // place names and local terms): every *-terms.txt file in the dictionary folder is read.
+                foreach (string file in Directory.GetFiles(DictionaryFolder, "*-terms.txt"))
+                    terms.AddRange(File.ReadAllLines(file).Select(l => l.Trim()).Where(l => l.Length > 0 && !l.StartsWith("#")));
             }
             catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
             _tradeTerms = terms;
             return terms;
         }

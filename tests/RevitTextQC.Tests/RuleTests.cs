@@ -386,6 +386,91 @@ namespace RevitTextQC.Tests
         }
     }
 
+    public class ProjectLanguageTests
+    {
+        [Fact]
+        public void Each_project_remembers_its_language_and_new_projects_use_the_last_one_chosen()
+        {
+            var settings = new QcSettings();
+            Assert.Equal("en_US", settings.LanguageFor("dubai"));
+
+            settings.SetLanguageFor("dubai", "Dubai Tower", "en_GB");
+            settings.SetLanguageFor("sydney", "Sydney Hospital", "en_AU");
+
+            Assert.Equal("en_GB", settings.LanguageFor("dubai"));
+            Assert.Equal("en_AU", settings.LanguageFor("sydney"));
+            Assert.Equal("en_AU", settings.LanguageFor("a-new-project")); // the last one chosen is the default
+            Assert.Equal("en_AU", settings.LanguageFor(null));
+
+            settings.SetLanguageFor("dubai", "Dubai Tower", "en_US");
+            Assert.Equal("en_US", settings.LanguageFor("dubai"));
+            Assert.Equal(2, settings.ProjectLanguages.Count);
+        }
+
+        [Fact]
+        public void The_project_list_survives_saving_and_unsafe_entries_are_dropped()
+        {
+            string path = Path.Combine(Path.GetTempPath(), "RevitTextQC.Tests", Guid.NewGuid() + ".json");
+            try
+            {
+                var settings = new QcSettings();
+                settings.SetLanguageFor("dubai", "Dubai Tower", "en_GB");
+                settings.SaveTo(path);
+                Assert.Equal("en_GB", QcSettings.LoadFrom(path).LanguageFor("dubai"));
+
+                File.WriteAllText(path, "{\"ProjectLanguages\":[{\"Project\":\"x\",\"Language\":\"..\\\\evil\"},null,{\"Project\":\"y\",\"Language\":\"en_AU\"}]}");
+                QcSettings loaded = QcSettings.LoadFrom(path);
+                Assert.Equal("en_AU", Assert.Single(loaded.ProjectLanguages).Language);
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
+        }
+    }
+
+    public class RegionTests
+    {
+        private static string Folder => Path.Combine(AppContext.BaseDirectory, "Dictionaries");
+
+        [Theory]
+        [InlineData("en_GB", "colour", true)]
+        [InlineData("en_GB", "color", false)]
+        [InlineData("en_AU", "colour", true)]
+        [InlineData("en_AU", "metre", true)]
+        [InlineData("en_AU", "aluminium", true)]
+        [InlineData("en_AU", "center", false)]
+        [InlineData("en_US", "color", true)]
+        [InlineData("en_US", "colour", false)]
+        public void Each_language_accepts_its_own_spelling_and_flags_the_others(string language, string word, bool accepted)
+        {
+            Assert.Equal(accepted, HunspellSpellChecker.Load(Folder, language).Check(word));
+        }
+
+        [Fact]
+        public void The_three_languages_are_offered_with_readable_names()
+        {
+            List<string> found = HunspellSpellChecker.AvailableLanguages(Folder).ToList();
+            Assert.Contains("en_US", found);
+            Assert.Contains("en_GB", found);
+            Assert.Contains("en_AU", found);
+            Assert.Equal("English (Australia)", HunspellSpellChecker.DisplayName("en_AU"));
+            Assert.Equal("de_DE", HunspellSpellChecker.DisplayName("de_DE"));
+        }
+
+        [Fact]
+        public void Bundled_term_lists_hold_rainscreen_and_the_gulf_and_australian_names()
+        {
+            var words = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string file in Directory.GetFiles(Folder, "*-terms.txt"))
+                foreach (string line in File.ReadAllLines(file))
+                    if (line.Trim().Length > 0 && !line.StartsWith("#")) words.Add(line.Trim());
+
+            foreach (string expected in new[] { "rainscreen", "jeddah", "jumeirah", "majlis", "mashrabiya", "sydney", "ffl", "dpc" })
+                Assert.Contains(expected, words);
+        }
+    }
+
     public class SuggestionTests
     {
         private static QcIssue Issue(string text, FakeSpellChecker spell) =>

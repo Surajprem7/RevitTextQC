@@ -36,6 +36,18 @@ namespace RevitTextQC.Core
             }
         }
 
+        /// <summary>The name a person would recognise for a dictionary file such as en_AU.</summary>
+        public static string DisplayName(string code)
+        {
+            switch (code)
+            {
+                case "en_US": return "English (United States)";
+                case "en_GB": return "English (United Kingdom)";
+                case "en_AU": return "English (Australia)";
+                default: return code;
+            }
+        }
+
         public static IEnumerable<string> AvailableLanguages(string dictionaryFolder)
         {
             if (!Directory.Exists(dictionaryFolder)) return Enumerable.Empty<string>();

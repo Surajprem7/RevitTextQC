@@ -18,6 +18,9 @@ namespace RevitTextQC.UI
     {
         private static readonly string[] CaseLabels = { "Any", "UPPERCASE", "lowercase", "Title Case" };
 
+        private string _projectKey;
+        private string _projectName;
+
         private readonly StandardsEditor _textNotes;
         private readonly StandardsEditor _dimensions;
 
@@ -33,7 +36,8 @@ namespace RevitTextQC.UI
             foreach (ComboBox box in new[] { TextNoteCase, DimensionCase, SheetNameCase, ViewNameCase, ParameterCase })
                 box.ItemsSource = CaseLabels;
 
-            LanguageBox.ItemsSource = HunspellSpellChecker.AvailableLanguages(ScanService.DictionaryFolder).ToList();
+            LanguageBox.ItemsSource = HunspellSpellChecker.AvailableLanguages(ScanService.DictionaryFolder)
+                .Select(code => new LanguageChoice(code, HunspellSpellChecker.DisplayName(code))).ToList();
             VersionText.Text = $"Text QC {App.CurrentVersion.ToString(3)} for Revit {App.RevitVersion}";
         }
 
@@ -49,6 +53,12 @@ namespace RevitTextQC.UI
             }
 
             var window = new SettingsWindow(typesInModel);
+            if (uidoc != null)
+            {
+                // The spelling language is remembered for this project.
+                window._projectKey = uidoc.Document.ProjectInformation.UniqueId;
+                window._projectName = uidoc.Document.Title;
+            }
             new WindowInteropHelper(window).Owner = owner != IntPtr.Zero ? owner : app.MainWindowHandle;
             window.LoadFrom(App.Settings);
 
@@ -99,7 +109,7 @@ namespace RevitTextQC.UI
             ParameterNames.Text = Lines.Join(s.ParameterNames);
 
             CheckSpelling.IsChecked = s.CheckSpelling;
-            LanguageBox.SelectedItem = s.Language;
+            LanguageBox.SelectedValue = s.LanguageFor(_projectKey);
             MinWordLength.Text = s.MinWordLength.ToString(CultureInfo.InvariantCulture);
             CustomWords.Text = Lines.Join(s.CustomWords.OrderBy(w => w, StringComparer.OrdinalIgnoreCase));
 
@@ -149,7 +159,8 @@ namespace RevitTextQC.UI
                 ParameterNames = Lines.Split(ParameterNames.Text),
 
                 CheckSpelling = CheckSpelling.IsChecked == true,
-                Language = LanguageBox.SelectedItem as string ?? App.Settings.Language,
+                Language = LanguageBox.SelectedValue as string ?? App.Settings.LanguageFor(_projectKey),
+                ProjectLanguages = App.Settings.ProjectLanguages.Select(p => new ProjectLanguage { Project = p.Project, Name = p.Name, Language = p.Language }).ToList(),
                 MinWordLength = int.TryParse(MinWordLength.Text.Trim(), out int min) && min > 0 ? min : 3,
                 CustomWords = Lines.Split(CustomWords.Text),
 
@@ -201,6 +212,7 @@ namespace RevitTextQC.UI
         {
             QcSettings s = Read();
             if (!PatternsAreValid(s)) return;
+            s.SetLanguageFor(_projectKey, _projectName, s.Language); // remembered for this project
 
             try
             {
@@ -236,13 +248,28 @@ namespace RevitTextQC.UI
             if (dialog.ShowDialog(this) != true) return;
             try
             {
-                Read().SaveTo(dialog.FileName);
+                QcSettings export = Read();
+                export.ProjectLanguages = new List<ProjectLanguage>(); // a client file carries the standard, not this PC's project list
+                export.SaveTo(dialog.FileName);
             }
             catch (Exception ex)
             {
                 MessageBox.Show(this, "The file could not be written:\n" + ex.Message, Title, MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+    }
+
+    /// <summary>One entry of the spelling language list: the file name and what the user sees.</summary>
+    public class LanguageChoice
+    {
+        public LanguageChoice(string code, string label)
+        {
+            Code = code;
+            Label = label;
+        }
+
+        public string Code { get; }
+        public string Label { get; }
     }
 
     internal static class Lines

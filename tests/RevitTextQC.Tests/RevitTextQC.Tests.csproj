@@ -15,6 +15,9 @@
     <ProjectReference Include="..\..\src\RevitTextQC.Core\RevitTextQC.Core.csproj" />
     <!-- The real dictionaries shipped with the add-in, for the Hunspell smoke test. -->
     <None Include="..\..\src\RevitTextQC\Dictionaries\en_US.*" Link="Dictionaries\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\src\RevitTextQC\Dictionaries\en_AU.*" Link="Dictionaries\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\src\RevitTextQC\Dictionaries\en_GB.*" Link="Dictionaries\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\src\RevitTextQC\Dictionaries\*-terms.txt" Link="Dictionaries\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

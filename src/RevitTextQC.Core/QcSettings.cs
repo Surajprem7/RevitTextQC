@@ -47,6 +47,17 @@ namespace RevitTextQC.Core
         }
     }
 
+    /// <summary>The spelling language chosen for one project, so switching between clients needs no changes.</summary>
+    [DataContract]
+    public class ProjectLanguage
+    {
+        /// <summary>The project's unique id (Revit's ProjectInformation.UniqueId).</summary>
+        [DataMember] public string Project { get; set; }
+        /// <summary>The project's name when it was set, for a person reading the file.</summary>
+        [DataMember] public string Name { get; set; }
+        [DataMember] public string Language { get; set; }
+    }
+
     [DataContract]
     public class ForbiddenTerm
     {
@@ -82,6 +93,8 @@ namespace RevitTextQC.Core
         [DataMember] public bool CheckSpelling { get; set; }
         /// <summary>Dictionary file name without extension: en_US or en_GB.</summary>
         [DataMember] public string Language { get; set; }
+        /// <summary>Languages chosen for particular projects. Projects not listed use <see cref="Language"/>.</summary>
+        [DataMember] public List<ProjectLanguage> ProjectLanguages { get; set; }
         [DataMember] public int MinWordLength { get; set; }
         [DataMember] public List<string> CustomWords { get; set; }
 
@@ -138,6 +151,7 @@ namespace RevitTextQC.Core
 
             CheckSpelling = true;
             Language = "en_US";
+            ProjectLanguages = new List<ProjectLanguage>();
             MinWordLength = 3;
             CustomWords = new List<string>();
 
@@ -237,12 +251,43 @@ namespace RevitTextQC.Core
             }
             // The language becomes part of a file name; a settings file from someone else must not
             // be able to point it outside the dictionary folder.
-            if (string.IsNullOrWhiteSpace(Language) || !Language.All(ch => char.IsLetterOrDigit(ch) || ch == '_' || ch == '-'))
-                Language = "en_US";
+            if (!IsSafeLanguage(Language)) Language = "en_US";
+            ProjectLanguages = (ProjectLanguages ?? new List<ProjectLanguage>())
+                .Where(p => p != null && !string.IsNullOrEmpty(p.Project) && IsSafeLanguage(p.Language)).ToList();
             if (MinWordLength < 1) MinWordLength = 1;
             SheetNumberPattern = SheetNumberPattern ?? "";
             SheetNamePattern = SheetNamePattern ?? "";
             ViewNamePattern = ViewNamePattern ?? "";
+        }
+
+        private static bool IsSafeLanguage(string language)
+        {
+            return !string.IsNullOrWhiteSpace(language) && language.All(ch => char.IsLetterOrDigit(ch) || ch == '_' || ch == '-');
+        }
+
+        /// <summary>The spelling language for a project: the one chosen for it, otherwise the default.</summary>
+        public string LanguageFor(string projectKey)
+        {
+            if (string.IsNullOrEmpty(projectKey)) return Language;
+            ProjectLanguage match = ProjectLanguages.FirstOrDefault(p => p.Project == projectKey);
+            return match != null ? match.Language : Language;
+        }
+
+        /// <summary>Remembers the language for a project (and makes it the default for projects not yet set).</summary>
+        public void SetLanguageFor(string projectKey, string projectName, string language)
+        {
+            if (!IsSafeLanguage(language)) return;
+            Language = language;
+            if (string.IsNullOrEmpty(projectKey)) return;
+
+            ProjectLanguage match = ProjectLanguages.FirstOrDefault(p => p.Project == projectKey);
+            if (match == null)
+            {
+                match = new ProjectLanguage { Project = projectKey };
+                ProjectLanguages.Add(match);
+            }
+            match.Name = projectName;
+            match.Language = language;
         }
 
         private static List<string> Clean(List<string> values)

@@ -95,8 +95,15 @@ the elements, click one to highlight it, or press **Select all in Revit** and ch
 - **Case & wording**: required case per kind of text, and forbidden terms written as `approx => approximately`.
   Unit symbols (`mm`, `kN`, `c/c`) and anything containing a digit (`100mm`, `M12`) are never re-cased; the
   list of exceptions is editable.
-- **Spelling**: a built-in list of common construction abbreviations (`FFL`, `DPC`, `TYP`, ...) is accepted
-  on top of the dictionary and your own custom words.
+- **Spelling**: a built-in list of common construction abbreviations (`FFL`, `DPC`, `TYP`, ...) and of Gulf and
+  Australian place names and local terms (`Jeddah`, `Jumeirah`, `majlis`, `Sydney`, ...) is accepted on top of
+  the dictionary and your own custom words.
+- **Spelling language** (QC Settings > Spelling): English (United Kingdom), English (Australia) or English
+  (United States). Spellings differ: `colour`, `metre`, `centre` and `aluminium` are mistakes in US English,
+  while `color`, `center` and `aluminum` are mistakes in the other two. Australian English also treats
+  `programme` as a mistake. Use United Kingdom for most UAE and Saudi clients and Australia for Australian ones.
+  The language is stored in the settings, so keep one settings file per client (**Export** to save it,
+  **Import** to load it).
 - **Naming**: regular expressions for sheet numbers, sheet names and view names. The whole value must match.
 
 Settings are stored per user in `%APPDATA%\RevitTextQC\settings.json`. Use **Export** and **Import** to share

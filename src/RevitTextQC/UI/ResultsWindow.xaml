@@ -54,7 +54,7 @@
                         <TextBlock Text="Search:" VerticalAlignment="Center" Margin="6,0,6,0" />
                         <TextBox x:Name="SearchBox" Width="190" VerticalContentAlignment="Center" TextChanged="OnFilterChanged" />
                         <TextBlock Text="Group by:" VerticalAlignment="Center" Margin="12,0,6,0" />
-                        <ComboBox x:Name="GroupByBox" Width="130" SelectedIndex="1" SelectionChanged="OnGroupByChanged">
+                        <ComboBox x:Name="GroupByBox" Width="130" SelectedIndex="3" SelectionChanged="OnGroupByChanged">
                             <ComboBoxItem Content="Nothing" />
                             <ComboBoxItem Content="Rule" />
                             <ComboBoxItem Content="View / sheet" />
