@@ -390,11 +390,20 @@ namespace RevitTextQC.Scanning
 
                 case BuiltInCategory.OST_TitleBlocks:
                     return Switch(_settings.ScanTitleBlock, "Checked (sheet fields)");
+
+                case BuiltInCategory.OST_Viewports:
+                    return Switch(_settings.ScanSheetsAndViews, "Checked (view names)");
+
+                case BuiltInCategory.OST_ScheduleGraphics:
+                    return Switch(_settings.ScanSchedules, "Checked (titles and headings)");
             }
 
             if (name.EndsWith("Tags", StringComparison.OrdinalIgnoreCase) || name.EndsWith("Tag", StringComparison.OrdinalIgnoreCase))
                 return Switch(_settings.ScanTags, "Checked");
-            return "Not checked";
+
+            // Anything else that draws lettering (elevation and section marks, keynote symbols) is picked up when the
+            // views are replayed; it is only "not checked" when that is switched off.
+            return _settings.ScanVisibleText ? "Checked if it draws text" : "Not checked";
         }
 
         private static string DisplayValue(Dimension dimension)
@@ -806,6 +815,7 @@ namespace RevitTextQC.Scanning
         // ---- text drawn by families and title blocks -------------------------------------------
 
         private const int MaxDeepViews = 30;
+        private static readonly TimeSpan MaxDeepTime = TimeSpan.FromSeconds(25);
 
         /// <summary>
         /// Reads every string Revit draws in the views, which finds lettering no parameter exposes:
@@ -817,8 +827,10 @@ namespace RevitTextQC.Scanning
             if (_viewIds == null) return;
 
             List<View> views = _viewIds.Select(id => _doc.GetElement(id)).OfType<View>()
-                // Revit refuses to replay a whole sheet or a schedule; a sheet's contents are read through its views.
-                .Where(v => !v.IsTemplate && !(v is View3D) && !(v is ViewSchedule) && !(v is ViewSheet))
+                // Revit refuses to replay a sheet, a schedule, a legend or a drafting view (their text notes and
+                // dimensions are still read by the other passes); a sheet's contents are read through its views.
+                .Where(v => !v.IsTemplate && !(v is View3D) && !(v is ViewSchedule) && !(v is ViewSheet)
+                            && v.ViewType != ViewType.Legend && v.ViewType != ViewType.DraftingView)
                 .ToList();
             if (views.Count == 0) return;
             if (views.Count > MaxDeepViews)
@@ -829,8 +841,12 @@ namespace RevitTextQC.Scanning
 
             var reader = new DeepTextReader();
             var failed = new List<string>();
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            int notRead = 0;
             foreach (View view in views)
             {
+                // Large sections and elevations take several seconds each, so a long list is cut off.
+                if (clock.Elapsed > MaxDeepTime) { notRead++; continue; }
                 try
                 {
                     using (var exporter = new CustomExporter(_doc, reader)
@@ -851,6 +867,8 @@ namespace RevitTextQC.Scanning
             }
             if (failed.Count > 0)
                 Notes.Add("Could not read the drawn text of " + string.Join("; ", failed.Take(3)) + (failed.Count > 3 ? "..." : "") + ".");
+            if (notRead > 0)
+                Notes.Add($"Reading drawn text stopped after {(int)MaxDeepTime.TotalSeconds} seconds; {notRead} view(s) were not read. Scan fewer views for a full check.");
 
             var seen = new HashSet<string>(StringComparer.Ordinal);
             foreach (DeepTextReader.Hit hit in reader.Hits)
