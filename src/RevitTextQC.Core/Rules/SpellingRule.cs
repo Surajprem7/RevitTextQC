@@ -18,6 +18,18 @@ namespace RevitTextQC.Core.Rules
         private static readonly Regex WordRegex = new Regex(
             @"(?<![\p{L}\p{N}_])\p{L}[\p{L}'’]*(?![\p{L}\p{N}_])", RegexOptions.Compiled);
 
+        // Web addresses, e-mail addresses and file paths are not prose: www.autodesk.com/revit would otherwise
+        // report "autodesk" and "revit". Words joined by a slash (AND/OR) are still checked.
+        private static readonly Regex LinkRegex = new Regex(
+            @"\b(?:https?://|ftp://|www\.)\S+|\S+@\S+\.\S+|\b[\w-]+(?:\.[\w-]+)*\.(?:com|net|org|edu|gov|io|co|uk|au|nz|us)\b\S*|\b[A-Za-z]:\\\S+",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        // Same length, so every position in the text stays where it was.
+        private static string MaskLinks(string text)
+        {
+            return LinkRegex.Replace(text, m => new string(' ', m.Length));
+        }
+
         private readonly ISpellChecker _spell;
         private readonly HashSet<string> _custom;
         private readonly int _minLength;
@@ -55,7 +67,7 @@ namespace RevitTextQC.Core.Rules
             if (!item.IsProse || item.SkipSpelling || string.IsNullOrWhiteSpace(item.Text)) yield break;
 
             var reported = new HashSet<string>(StringComparer.Ordinal);
-            foreach (Match match in WordRegex.Matches(item.Text))
+            foreach (Match match in WordRegex.Matches(MaskLinks(item.Text)))
             {
                 string word = Clean(match.Value);
                 if (word.Length < _minLength || IsMixedCase(word) || IsKnown(word)) continue;

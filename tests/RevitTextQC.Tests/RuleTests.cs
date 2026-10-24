@@ -386,6 +386,34 @@ namespace RevitTextQC.Tests
         }
     }
 
+    public class LinkTests
+    {
+        private static SpellingRule Rule() =>
+            new SpellingRule(new FakeSpellChecker(new[] { "see", "and", "or", "steel", "email", "Email" }), null, 3);
+
+        private static TextItem Note(string text) => new TextItem { Source = TextSource.TextNote, Text = text, Editable = true };
+
+        [Theory]
+        [InlineData("www.autodesk.com/revit")]
+        [InlineData("https://example.org/some/path")]
+        [InlineData("info@firm.com")]
+        [InlineData("C:\\Projects\\Snowdon\\model")]
+        public void Web_addresses_emails_and_paths_are_not_spell_checked(string text)
+        {
+            Assert.Empty(Rule().Check(Note(text)));
+        }
+
+        [Fact]
+        public void Words_joined_by_a_slash_and_words_next_to_a_link_are_still_checked()
+        {
+            Assert.Equal("concret", Assert.Single(Rule().Check(Note("steel/concret"))).Word);
+
+            // Only the real misspelling is reported, not the pieces of the web address beside it.
+            List<string> words = Rule().Check(Note("see www.firm.com and wal")).Select(i => i.Word).ToList();
+            Assert.Equal(new[] { "wal" }, words);
+        }
+    }
+
     public class AccentTests
     {
         [Fact]
