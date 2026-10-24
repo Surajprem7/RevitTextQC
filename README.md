@@ -25,10 +25,17 @@ and keeps itself up to date from this repository's GitHub releases.
 - Sheet numbers, sheet names, view names, grid names and level names
 - Title block text: the sheet's own fields (Drawn By, Issue Date...), the project information and the
   revision descriptions printed on the sheet. Names in "by" fields are not spell checked.
-- Text drawn by families and title blocks, read from the view itself: labels inside annotation families,
-  fixed text in title blocks, keynote symbols and viewport titles. This reads up to 30 views at a time and is
-  slower; switch it off in **QC Settings** if it is not needed. It reports the text and where it is, but the
-  text itself has to be fixed in the family or title block.
+- Text drawn by families and symbols, read from each view itself: labels inside annotation families, section
+  and elevation marks, keynote symbols. This reads up to 30 views at a time and is slower; switch it off in
+  **QC Settings** if it is not needed. It reports the text and where it is, but the text itself has to be
+  fixed in the family. Revit cannot read fixed text typed inside a title block family (only the sheet,
+  project and revision fields above), and it cannot read text inside DWG imports or linked models.
+
+## Showing a finding on a sheet
+
+When a sheet is open, clicking a finding or pressing **Show** stays on the sheet. Text inside a placed view
+selects that view's frame and zooms the sheet to where the text is printed. Title block fields select the
+title block and say which field it is, because Revit does not report where a title block prints each field.
 - Schedule titles and column headings (cell values optional)
 - Keynote text for keynotes assigned in the model (entire-project scans)
 

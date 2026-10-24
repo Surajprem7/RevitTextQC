@@ -141,26 +141,38 @@ namespace RevitTextQC.Scanning
             }
         }
 
-        /// <summary>Selects a set of elements in Revit, skipping any deleted since the scan. Returns how many were selected.</summary>
+        /// <summary>
+        /// Selects a set of elements in the open view, skipping any deleted since the scan or living in a view
+        /// that is not open (on a sheet, the viewport of their view is selected instead). Returns how many were selected.
+        /// </summary>
         public static int Select(UIDocument uidoc, IEnumerable<long> elementIds)
         {
-            Document doc = uidoc.Document;
-            List<ElementId> ids = elementIds.Select(id => new ElementId(id)).Where(id => doc.GetElement(id) != null).ToList();
-            uidoc.Selection.SetElementIds(ids);
-            return ids.Count;
+            List<ElementId> ids = elementIds.Select(id => new ElementId(id)).ToList();
+            return ids.Count - SheetFocus.Select(uidoc, ids);
         }
 
-        /// <summary>Selects one text note or dimension and brings it into view. Returns a status message.</summary>
+        /// <summary>Selects one element and brings it into view. On a sheet it stays on the sheet. Returns a status message.</summary>
         public static string ShowElement(UIDocument uidoc, long elementId, bool openViews)
         {
-            var id = new ElementId(elementId);
-            Element element = uidoc.Document.GetElement(id);
+            Document doc = uidoc.Document;
+            Element element = doc.GetElement(new ElementId(elementId));
             if (element == null) return "The element no longer exists. Scan again.";
 
-            uidoc.Selection.SetElementIds(new List<ElementId> { id });
-            if (!openViews && IsInViewportOnActiveSheet(uidoc, element))
-                return "Highlighted on the sheet. Double-click to open its view.";
-            uidoc.ShowElements(id);
+            // On a sheet, stay on the sheet and zoom to where the text is printed.
+            if (uidoc.ActiveView is ViewSheet sheet)
+            {
+                string onSheet = SheetFocus.ShowElement(uidoc, sheet, element);
+                if (onSheet != null) return onSheet;
+            }
+
+            ElementId owner = element.OwnerViewId;
+            bool inAnotherView = owner != null && owner != ElementId.InvalidElementId && owner != uidoc.ActiveView.Id;
+            if (inAnotherView && !openViews)
+                return "This text is in view \"" + (doc.GetElement(owner) as View)?.Name + "\". Press Show to open it.";
+
+            // In the open view, or Show on something in another view: Revit zooms to it, opening its view if needed.
+            uidoc.Selection.SetElementIds(new List<ElementId> { element.Id });
+            uidoc.ShowElements(element.Id);
             return "Shown in Revit.";
         }
 
@@ -176,6 +188,13 @@ namespace RevitTextQC.Scanning
             var id = new ElementId(item.ElementId);
             Element element = doc.GetElement(id);
             if (element == null) return "The element no longer exists. Scan again.";
+
+            // On a sheet, title block fields, views and schedules are shown on the sheet itself.
+            if (uidoc.ActiveView is ViewSheet openSheet)
+            {
+                string onSheet = SheetFocus.ShowItem(uidoc, openSheet, item, element);
+                if (onSheet != null) return onSheet;
+            }
 
             switch (item.Source)
             {
@@ -199,8 +218,9 @@ namespace RevitTextQC.Scanning
                     Type instanceClass = item.Source == TextSource.TextNoteType ? typeof(TextNote) : typeof(Dimension);
                     List<ElementId> instances = new FilteredElementCollector(doc).OfClass(instanceClass)
                         .Where(e => e.GetTypeId() == id).Select(e => e.Id).ToList();
-                    uidoc.Selection.SetElementIds(instances);
-                    return $"Selected {instances.Count} element(s) using \"{item.Text}\". Use the Type Selector to change them.";
+                    int left = SheetFocus.Select(uidoc, instances);
+                    string rest = left > 0 ? $" ({left} more are in views that are not open)" : "";
+                    return $"Selected {instances.Count - left} element(s) using \"{item.Text}\"{rest}. Use the Type Selector to change them.";
 
                 case TextSource.SheetName:
                 case TextSource.SheetNumber:
@@ -219,13 +239,5 @@ namespace RevitTextQC.Scanning
             }
         }
 
-        // Text in a view placed on the active sheet is highlighted through the viewport, so the
-        // user stays on the sheet they are checking instead of being taken into the view.
-        private static bool IsInViewportOnActiveSheet(UIDocument uidoc, Element element)
-        {
-            ElementId owner = element.OwnerViewId;
-            if (owner == null || owner == ElementId.InvalidElementId) return false;
-            return uidoc.ActiveView is ViewSheet sheet && sheet.GetAllPlacedViews().Contains(owner);
-        }
     }
 }

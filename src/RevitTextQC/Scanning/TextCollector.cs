@@ -816,7 +816,8 @@ namespace RevitTextQC.Scanning
             if (_viewIds == null) return;
 
             List<View> views = _viewIds.Select(id => _doc.GetElement(id)).OfType<View>()
-                .Where(v => !v.IsTemplate && !(v is View3D) && !(v is ViewSchedule))
+                // Revit refuses to replay a whole sheet or a schedule; a sheet's contents are read through its views.
+                .Where(v => !v.IsTemplate && !(v is View3D) && !(v is ViewSchedule) && !(v is ViewSheet))
                 .ToList();
             if (views.Count == 0) return;
             if (views.Count > MaxDeepViews)
