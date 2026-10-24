@@ -101,7 +101,9 @@ the elements, click one to highlight it, or press **Select all in Revit** and ch
 - **Spelling language** (QC Settings > Spelling): English (United Kingdom), English (Australia) or English
   (United States). Spellings differ: `colour`, `metre`, `centre` and `aluminium` are mistakes in US English,
   while `color`, `center` and `aluminum` are mistakes in the other two. Australian English also treats
-  `programme` as a mistake. Use United Kingdom for most UAE and Saudi clients and Australia for Australian ones.
+  `programme` as a mistake. American *words* that British English does not use, such as `elevator` or `restroom`,
+  are accepted in the United Kingdom and Australia modes; only American *spellings* are reported.
+  Use United Kingdom for most UAE and Saudi clients and Australia for Australian ones.
   The language is stored in the settings, so keep one settings file per client (**Export** to save it,
   **Import** to load it).
 - **Naming**: regular expressions for sheet numbers, sheet names and view names. The whole value must match.

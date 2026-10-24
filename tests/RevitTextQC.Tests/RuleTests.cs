@@ -386,6 +386,64 @@ namespace RevitTextQC.Tests
         }
     }
 
+    public class DialectTests
+    {
+        private static DialectSpellChecker British() => new DialectSpellChecker(
+            new FakeSpellChecker(new[] { "colour", "centre", "organise", "labelled", "aluminium", "grey", "mould", "defence", "catalogue", "lift", "Colour" }),
+            new FakeSpellChecker(new[] { "color", "center", "organize", "labeled", "aluminum", "gray", "mold", "defense", "catalog", "elevator", "restroom", "Color", "elevators" }));
+
+        [Theory]
+        [InlineData("color")]
+        [InlineData("center")]
+        [InlineData("organize")]
+        [InlineData("labeled")]
+        [InlineData("aluminum")]
+        [InlineData("gray")]
+        [InlineData("mold")]
+        [InlineData("defense")]
+        [InlineData("catalog")]
+        [InlineData("Color")]
+        public void An_american_spelling_of_a_word_the_language_has_is_reported(string word)
+        {
+            Assert.False(British().Check(word));
+        }
+
+        [Theory]
+        [InlineData("elevator")]
+        [InlineData("elevators")]
+        [InlineData("restroom")]
+        [InlineData("colour")]
+        [InlineData("lift")]
+        public void An_american_word_or_a_correct_british_one_is_accepted(string word)
+        {
+            Assert.True(British().Check(word));
+        }
+
+        [Fact]
+        public void Words_that_are_wrong_everywhere_are_still_reported_and_suggestions_come_from_the_language()
+        {
+            Assert.False(British().Check("elevatar"));
+            Assert.Empty(British().Suggest("anything"));
+        }
+
+        [Fact]
+        public void The_real_british_and_australian_dictionaries_accept_elevator_but_not_color()
+        {
+            string folder = Path.Combine(AppContext.BaseDirectory, "Dictionaries");
+            foreach (string language in new[] { "en_GB", "en_AU" })
+            {
+                var checker = new DialectSpellChecker(
+                    HunspellSpellChecker.Load(folder, language), HunspellSpellChecker.Load(folder, "en_US"));
+                Assert.True(checker.Check("elevator"), language + " elevator");
+                Assert.True(checker.Check("colour"), language + " colour");
+                Assert.False(checker.Check("color"), language + " color");
+                Assert.False(checker.Check("aluminum"), language + " aluminum");
+                Assert.False(checker.Check("labeled"), language + " labeled");
+                Assert.False(checker.Check("Elevatar"), language + " Elevatar");
+            }
+        }
+    }
+
     public class ProjectLanguageTests
     {
         [Fact]

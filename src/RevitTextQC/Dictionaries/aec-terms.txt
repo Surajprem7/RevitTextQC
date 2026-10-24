@@ -161,6 +161,10 @@ prestressed
 posttensioned
 
 # Architecture and finishes
+centerline
+centerlines
+centreline
+centrelines
 rainscreen
 rainscreens
 firestopping

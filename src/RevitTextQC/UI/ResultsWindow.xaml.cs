@@ -889,7 +889,16 @@ namespace RevitTextQC.UI
             {
                 try
                 {
-                    spell = HunspellSpellChecker.Load(DictionaryFolder, settings.LanguageFor(projectKey));
+                    string language = settings.LanguageFor(projectKey);
+                    spell = HunspellSpellChecker.Load(DictionaryFolder, language);
+
+                    // British and Australian dictionaries lack American words such as "elevator", which a Gulf
+                    // drawing uses correctly. Only American spellings (color, center) should be reported.
+                    if (!string.Equals(language, "en_US", StringComparison.OrdinalIgnoreCase))
+                    {
+                        try { spell = new DialectSpellChecker(spell, HunspellSpellChecker.Load(DictionaryFolder, "en_US")); }
+                        catch (FileNotFoundException) { }
+                    }
                 }
                 catch (Exception)
                 {
