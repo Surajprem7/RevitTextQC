@@ -305,6 +305,13 @@ namespace RevitTextQC.UI
                     status += "  ⚠ " + string.Join(" ", _engine.ConfigurationWarnings);
                 if (collector.Notes.Count > 0) status += "  ⚠ " + string.Join(" ", collector.Notes);
                 SetStatus(status);
+                UpdateSummary(); // also settles the empty-state message when there are no findings
+            }
+            catch
+            {
+                // Never leave "Scanning..." on screen after a failed scan; the caller shows the error in the status line.
+                ShowEmpty("The scan did not finish", "See the message at the bottom of the window.");
+                throw;
             }
             finally
             {

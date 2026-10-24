@@ -991,7 +991,8 @@ namespace RevitTextQC.Scanning
                 {
                     // One view that cannot be replayed must not lose the findings from the others.
                     Support.Log("drawn text of view " + view.Name, ex);
-                    failed.Add("\"" + view.Name + "\" (" + ex.Message + ")");
+                    // Revit's messages end with a line such as "Parameter name: view"; the first line is the reason.
+                    failed.Add("\"" + view.Name + "\" (" + ex.Message.Split('\n')[0].Trim() + ")");
                 }
             }
             if (failed.Count > 0)
