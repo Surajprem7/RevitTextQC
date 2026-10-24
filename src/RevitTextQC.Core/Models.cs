@@ -86,6 +86,9 @@ namespace RevitTextQC.Core
         /// <summary>The text is names or codes (Drawn By, Checked By...) that a dictionary cannot judge.</summary>
         public bool SkipSpelling { get; set; }
 
+        /// <summary>The view the text was read from, when known (0 when not). Used to find it on a sheet.</summary>
+        public long ViewId { get; set; }
+
         public bool IsType => Source == TextSource.TextNoteType || Source == TextSource.DimensionType;
 
         /// <summary>Free text that spelling, whitespace and forbidden-term rules apply to.</summary>

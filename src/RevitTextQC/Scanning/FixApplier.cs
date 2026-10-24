@@ -152,7 +152,8 @@ namespace RevitTextQC.Scanning
         }
 
         /// <summary>Selects one element and brings it into view. On a sheet it stays on the sheet. Returns a status message.</summary>
-        public static string ShowElement(UIDocument uidoc, long elementId, bool openViews)
+        /// <param name="viewHint">The view the text was read from, when known (0 when not).</param>
+        public static string ShowElement(UIDocument uidoc, long elementId, bool openViews, long viewHint = 0)
         {
             Document doc = uidoc.Document;
             Element element = doc.GetElement(new ElementId(elementId));
@@ -161,14 +162,20 @@ namespace RevitTextQC.Scanning
             // On a sheet, stay on the sheet and zoom to where the text is printed.
             if (uidoc.ActiveView is ViewSheet sheet)
             {
-                string onSheet = SheetFocus.ShowElement(uidoc, sheet, element);
+                string onSheet = SheetFocus.ShowElement(uidoc, sheet, element, viewHint);
                 if (onSheet != null) return onSheet;
             }
 
+            // A plain click never takes the user to another view. Annotation records its view; a model element
+            // does not, so ask whether the open view draws it.
             ElementId owner = element.OwnerViewId;
-            bool inAnotherView = owner != null && owner != ElementId.InvalidElementId && owner != uidoc.ActiveView.Id;
-            if (inAnotherView && !openViews)
-                return "This text is in view \"" + (doc.GetElement(owner) as View)?.Name + "\". Press Show to open it.";
+            bool hasOwner = owner != null && owner != ElementId.InvalidElementId;
+            bool inOpenView = hasOwner ? owner == uidoc.ActiveView.Id : SheetFocus.IsShownIn(doc, uidoc.ActiveView.Id, element.Id);
+            if (!inOpenView && !openViews)
+            {
+                string where = hasOwner ? " in view \"" + (doc.GetElement(owner) as View)?.Name + "\"" : "";
+                return "This text is not in the open view" + where + ". Press Show to open it.";
+            }
 
             // In the open view, or Show on something in another view: Revit zooms to it, opening its view if needed.
             uidoc.Selection.SetElementIds(new List<ElementId> { element.Id });
@@ -235,7 +242,7 @@ namespace RevitTextQC.Scanning
                     return "This view cannot be opened.";
 
                 default:
-                    return ShowElement(uidoc, item.ElementId, openViews);
+                    return ShowElement(uidoc, item.ElementId, openViews, item.ViewId);
             }
         }
 

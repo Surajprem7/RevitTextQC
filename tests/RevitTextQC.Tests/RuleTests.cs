@@ -342,6 +342,17 @@ namespace RevitTextQC.Tests
         }
     }
 
+    public class AccentTests
+    {
+        [Fact]
+        public void An_accented_word_is_accepted_when_its_plain_spelling_is_a_word()
+        {
+            var rule = new SpellingRule(new FakeSpellChecker(new[] { "cafe", "Cafe" }), null, 3);
+            Assert.Empty(rule.Check(new TextItem { Source = TextSource.TextNote, Text = "Café CAFÉ café" }));
+            Assert.Single(rule.Check(new TextItem { Source = TextSource.TextNote, Text = "Caffé" }));
+        }
+    }
+
     public class ResultColumnTests
     {
         private static TextItem Note(string text) => new TextItem { Source = TextSource.TextNote, Text = text, Editable = true };

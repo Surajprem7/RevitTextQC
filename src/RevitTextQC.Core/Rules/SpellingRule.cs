@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -124,15 +125,33 @@ namespace RevitTextQC.Core.Rules
             if (_custom.Contains(word)) return true;
             if (_known.TryGetValue(word, out bool known)) return known;
 
-            known = _spell.Check(word);
-            if (!known && IsAllUpper(word))
+            known = Lookup(word);
+            if (!known)
             {
-                // Drawings are usually lettered in capitals: accept NOTE if "note" or "Note" is a word.
-                string lower = word.ToLowerInvariant();
-                known = _spell.Check(lower) || _spell.Check(Capitalize(lower));
+                // Café is cafe with an accent; the English dictionary lists only the plain spelling.
+                string plain = RemoveDiacritics(word);
+                known = plain != word && Lookup(plain);
             }
             _known[word] = known;
             return known;
+        }
+
+        private bool Lookup(string word)
+        {
+            if (_spell.Check(word)) return true;
+            if (!IsAllUpper(word)) return false;
+
+            // Drawings are usually lettered in capitals: accept NOTE if "note" or "Note" is a word.
+            string lower = word.ToLowerInvariant();
+            return _spell.Check(lower) || _spell.Check(Capitalize(lower));
+        }
+
+        private static string RemoveDiacritics(string text)
+        {
+            var sb = new StringBuilder();
+            foreach (char c in text.Normalize(NormalizationForm.FormD))
+                if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark) sb.Append(c);
+            return sb.ToString().Normalize(NormalizationForm.FormC);
         }
 
         private IList<string> Suggest(string word)

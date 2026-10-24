@@ -729,9 +729,10 @@ namespace RevitTextQC.Scanning
 
         // ---- title block -------------------------------------------------------------------
 
-        // Names such as Drawn By or Checked By hold people's names, which no dictionary can judge.
+        // Fields such as Drawn By, Client Name or Project Address hold people, companies and places,
+        // which no dictionary can judge, so they are not spell checked.
         private static readonly Regex PersonField = new Regex(
-            @"\b(by|checker|designer|author|approver|drawn|owner|engineer|architect)\b",
+            @"\b(by|checker|designer|author|approver|drawn|owner|engineer|architect|name|client|organization|address)\b",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         private static readonly HashSet<string> ReadElsewhere = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -865,6 +866,7 @@ namespace RevitTextQC.Scanning
                 {
                     ElementId = element.Id.Value,
                     Source = TextSource.VisibleText,
+                    ViewId = hit.ViewId == null ? 0 : hit.ViewId.Value,
                     Text = text,
                     Location = ViewName(hit.ViewId),
                     Field = element.Category?.Name,
