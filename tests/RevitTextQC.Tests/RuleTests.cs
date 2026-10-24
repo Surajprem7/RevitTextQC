@@ -386,6 +386,36 @@ namespace RevitTextQC.Tests
         }
     }
 
+    public class SuggestionTests
+    {
+        private static QcIssue Issue(string text, FakeSpellChecker spell) =>
+            Assert.Single(new SpellingRule(spell, null, 3).Check(new TextItem { Source = TextSource.TextNote, Text = text, Editable = true }));
+
+        [Fact]
+        public void A_word_one_slip_away_is_suggested_first_even_when_the_dictionary_misses_it()
+        {
+            // The dictionary offers "Hon", which is not what anyone meant by "Phon".
+            var spell = new FakeSpellChecker(new[] { "Phone", "Hon" }, new Dictionary<string, string> { { "Phon", "Hon" } });
+            QcIssue issue = Issue("Phon", spell);
+            Assert.Equal("Phone", issue.Alternatives[0]);
+            Assert.Equal("Phone / Hon", issue.Replacement);
+        }
+
+        [Fact]
+        public void Swapped_letters_and_all_capitals_are_handled()
+        {
+            var spell = new FakeSpellChecker(new[] { "foundation" });
+            Assert.Equal("FOUNDATION", Issue("FOUNDATOIN", spell).Alternatives[0]);
+        }
+
+        [Fact]
+        public void Words_that_are_not_close_to_anything_get_only_the_dictionarys_suggestions()
+        {
+            var spell = new FakeSpellChecker(new[] { "Hon" }, new Dictionary<string, string> { { "Xqzv", "Hon" } });
+            Assert.Equal(new[] { "Hon" }, Issue("Xqzv", spell).Alternatives);
+        }
+    }
+
     public class LinkTests
     {
         private static SpellingRule Rule() =>

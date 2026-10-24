@@ -175,7 +175,7 @@ namespace RevitTextQC.Core.Rules
             try
             {
                 string query = IsAllUpper(word) ? word.ToLowerInvariant() : word;
-                result = _spell.Suggest(query) ?? new List<string>();
+                result = Rank(query, _spell.Suggest(query) ?? new List<string>());
             }
             catch (Exception)
             {
@@ -187,6 +187,71 @@ namespace RevitTextQC.Core.Rules
             }
             _suggestions[word] = result;
             return result;
+        }
+
+        // The dictionary's own suggestions can miss the obvious word ("Phon" gets "Hon" and "P hon", not "Phone").
+        // Words that are one typing slip away (a missing, extra, swapped or wrong letter) are what a person
+        // meant most of the time, so those come first, then the rest of the dictionary's list.
+        private IList<string> Rank(string query, IList<string> suggested)
+        {
+            // Position in the dictionary's own list, used to order words that are equally likely slips.
+            var rank = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < suggested.Count; i++)
+                if (!rank.ContainsKey(suggested[i])) rank[suggested[i]] = i;
+
+            var ordered = new List<string>();
+            foreach (Slip slip in OneSlipAway(query)
+                         .OrderBy(s => s.SameFirstLetter ? 0 : 1)
+                         .ThenBy(s => s.Kind)
+                         .ThenBy(s => rank.TryGetValue(s.Word, out int position) ? position : int.MaxValue))
+                AddOnce(ordered, slip.Word);
+            foreach (string s in suggested) AddOnce(ordered, s);
+            return ordered;
+        }
+
+        private class Slip
+        {
+            public string Word;
+            /// <summary>0 two letters swapped, 1 a letter missing, 2 a letter extra, 3 a wrong letter.</summary>
+            public int Kind;
+            public bool SameFirstLetter;
+        }
+
+        private static void AddOnce(List<string> list, string value)
+        {
+            if (!list.Contains(value, StringComparer.OrdinalIgnoreCase)) list.Add(value);
+        }
+
+        private List<Slip> OneSlipAway(string word)
+        {
+            var found = new List<Slip>();
+            if (word.Length < 3 || word.Length > 14 || !word.All(char.IsLetter)) return found;
+
+            void Try(string candidate, int kind)
+            {
+                if (candidate.Length < 2 || found.Any(s => string.Equals(s.Word, candidate, StringComparison.Ordinal))) return;
+                if (!_spell.Check(candidate)) return;
+                found.Add(new Slip
+                {
+                    Word = candidate,
+                    Kind = kind,
+                    // People rarely get the first letter wrong.
+                    SameFirstLetter = char.ToLowerInvariant(candidate[0]) == char.ToLowerInvariant(word[0])
+                });
+            }
+
+            for (int i = 0; i < word.Length - 1; i++)
+                Try(word.Substring(0, i) + word[i + 1] + word[i] + word.Substring(i + 2), 0);
+            for (int i = 0; i <= word.Length; i++)
+                for (char c = 'a'; c <= 'z'; c++)
+                    Try(word.Substring(0, i) + c + word.Substring(i), 1);
+            for (int i = 0; i < word.Length; i++)
+                Try(word.Remove(i, 1), 2);
+            for (int i = 0; i < word.Length; i++)
+                for (char c = 'a'; c <= 'z'; c++)
+                    if (c != char.ToLowerInvariant(word[i])) Try(word.Substring(0, i) + c + word.Substring(i + 1), 3);
+
+            return found;
         }
 
         private static string Capitalize(string lower)
