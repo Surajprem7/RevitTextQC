@@ -44,9 +44,10 @@ namespace RevitTextQC
             {
                 UpdateManager.StartBackgroundCheck();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 // An updater problem must never stop the add-in itself from loading.
+                Support.Log("starting the update check", ex);
             }
             return Result.Succeeded;
         }
@@ -159,7 +160,8 @@ namespace RevitTextQC
                 }
                 catch (Exception ex)
                 {
-                    TaskDialog.Show(App.Title, "Text QC could not complete the action:\n\n" + ex.Message);
+                    Support.Log("action in Revit", ex);
+                    TaskDialog.Show(App.Title, "Text QC could not complete the action:\n\n" + ex.Message + "\n\nDetails: " + Support.LogPath);
                 }
             }
         }

@@ -222,7 +222,8 @@ namespace RevitTextQC.UI
             }
             catch (Exception ex)
             {
-                SetStatus("Something went wrong: " + ex.Message);
+                Support.Log("results window", ex);
+                SetStatus("Something went wrong: " + ex.Message + "  (details: " + Support.LogPath + ")");
             }
         }
 
@@ -666,6 +667,7 @@ namespace RevitTextQC.UI
                         }
                         catch (Exception ex)
                         {
+                            Support.Log("applying a fix to element " + item.ElementId, ex);
                             errors.Add(ex.Message);
                         }
                     }
@@ -889,20 +891,14 @@ namespace RevitTextQC.UI
             {
                 try
                 {
-                    string language = settings.LanguageFor(projectKey);
-                    spell = HunspellSpellChecker.Load(DictionaryFolder, language);
-
-                    // British and Australian dictionaries lack American words such as "elevator", which a Gulf
-                    // drawing uses correctly. Only American spellings (color, center) should be reported.
-                    if (!string.Equals(language, "en_US", StringComparison.OrdinalIgnoreCase))
-                    {
-                        try { spell = new DialectSpellChecker(spell, HunspellSpellChecker.Load(DictionaryFolder, "en_US")); }
-                        catch (FileNotFoundException) { }
-                    }
+                    // British and Australian dictionaries lack a few American words that drawings use correctly
+                    // (elevator, sidewalk); those are in american-terms.txt, which is read with the other term lists.
+                    spell = HunspellSpellChecker.Load(DictionaryFolder, settings.LanguageFor(projectKey));
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
                     // The engine reports that spelling was skipped.
+                    Support.Log("spelling dictionary " + settings.LanguageFor(projectKey) + " could not be loaded", ex);
                 }
             }
             return new QcEngine(settings, spell, TradeTerms());

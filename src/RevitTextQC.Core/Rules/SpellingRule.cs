@@ -22,12 +22,19 @@ namespace RevitTextQC.Core.Rules
         // report "autodesk" and "revit". Words joined by a slash (AND/OR) are still checked.
         private static readonly Regex LinkRegex = new Regex(
             @"\b(?:https?://|ftp://|www\.)\S+|\S+@\S+\.\S+|\b[\w-]+(?:\.[\w-]+)*\.(?:com|net|org|edu|gov|io|co|uk|au|nz|us)\b\S*|\b[A-Za-z]:\\\S+",
-            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+            RegexOptions.Compiled | RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
 
         // Same length, so every position in the text stays where it was.
         private static string MaskLinks(string text)
         {
-            return LinkRegex.Replace(text, m => new string(' ', m.Length));
+            try
+            {
+                return LinkRegex.Replace(text, m => new string(' ', m.Length));
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                return text; // odd text that is slow to analyse is simply checked as it is
+            }
         }
 
         private readonly ISpellChecker _spell;

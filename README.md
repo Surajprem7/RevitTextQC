@@ -1,5 +1,7 @@
 ﻿# Revit Text QC
 
+> Rolling this out to a team? See the [team guide](docs/TEAM-GUIDE.md).
+
 A Revit add-in that checks the text in a model before drawings go out: spelling, text types and sizes,
 letter case, spacing, forbidden wording and sheet/view naming. It supports Revit 2024, 2025, 2026 and 2027
 and keeps itself up to date from this repository's GitHub releases.
@@ -101,8 +103,9 @@ the elements, click one to highlight it, or press **Select all in Revit** and ch
 - **Spelling language** (QC Settings > Spelling): English (United Kingdom), English (Australia) or English
   (United States). Spellings differ: `colour`, `metre`, `centre` and `aluminium` are mistakes in US English,
   while `color`, `center` and `aluminum` are mistakes in the other two. Australian English also treats
-  `programme` as a mistake. American *words* that British English does not use, such as `elevator` or `restroom`,
-  are accepted in the United Kingdom and Australia modes; only American *spellings* are reported.
+  `programme` as a mistake. A short list of American *words* that drawings use correctly, such as `elevator`,
+  `sidewalk` and `faucet`, is accepted in every mode; American *spellings* are reported in the United Kingdom
+  and Australia modes.
   Use United Kingdom for most UAE and Saudi clients and Australia for Australian ones.
   The language is stored in the settings, so keep one settings file per client (**Export** to save it,
   **Import** to load it).

@@ -174,7 +174,9 @@ namespace RevitTextQC.Updates
 
         private static void VerifyChecksum(string file, string expectedSha256)
         {
-            if (string.IsNullOrEmpty(expectedSha256)) return; // older GitHub API responses carry no digest
+            // A download is only trusted when GitHub states its checksum; without one nothing is installed.
+            if (string.IsNullOrEmpty(expectedSha256))
+                throw new InvalidDataException("The release does not state a checksum for this file, so it was not installed.");
 
             using (SHA256 sha = SHA256.Create())
             using (FileStream stream = File.OpenRead(file))
@@ -417,13 +419,13 @@ namespace RevitTextQC.Updates
                 // Another Revit session of the same version can still hold the add-in. Copying then would
                 // replace some files and not others, leaving a mixed-version install, so test the two
                 // assemblies for a write lock first and leave everything staged for the next shutdown.
-                cmd.AppendLine($"if exist \"{mainDll}\" ( ( (call ) >>\"{mainDll}\" ) 2>nul || goto end )");
-                cmd.AppendLine($"if exist \"{coreDll}\" ( ( (call ) >>\"{coreDll}\" ) 2>nul || goto end )");
+                cmd.AppendLine($"if exist \"{ForCmd(mainDll)}\" ( ( (call ) >>\"{ForCmd(mainDll)}\" ) 2>nul || goto end )");
+                cmd.AppendLine($"if exist \"{ForCmd(coreDll)}\" ( ( (call ) >>\"{ForCmd(coreDll)}\" ) 2>nul || goto end )");
                 // /IS /IT: copy even when size and timestamp match, so a staged file is never silently skipped.
-                cmd.AppendLine($"robocopy \"{StagedFolder}\" \"{installRoot}\" /E /IS /IT /R:10 /W:3 /NP > \"{LogFile}\" 2>&1");
+                cmd.AppendLine($"robocopy \"{ForCmd(StagedFolder)}\" \"{ForCmd(installRoot)}\" /E /IS /IT /R:10 /W:3 /NP > \"{ForCmd(LogFile)}\" 2>&1");
                 cmd.AppendLine("if errorlevel 8 goto end");
-                cmd.AppendLine($"rmdir /S /Q \"{StagedFolder}\"");
-                cmd.AppendLine($"del /Q \"{StagedMarker}\"");
+                cmd.AppendLine($"rmdir /S /Q \"{ForCmd(StagedFolder)}\"");
+                cmd.AppendLine($"del /Q \"{ForCmd(StagedMarker)}\"");
                 cmd.AppendLine(":end");
                 File.WriteAllText(script, cmd.ToString(), new UTF8Encoding(false));
 
@@ -443,13 +445,13 @@ namespace RevitTextQC.Updates
 
         private static void Log(string message)
         {
-            try
-            {
-                Directory.CreateDirectory(UpdatesFolder);
-                File.AppendAllText(Path.Combine(UpdatesFolder, "updater.log"),
-                    DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "  " + message + Environment.NewLine);
-            }
-            catch (IOException) { }
+            Support.Log("updater: " + message);
+        }
+
+        // cmd expands %NAME% even inside quotes, so a percent sign in a path must be doubled.
+        private static string ForCmd(string path)
+        {
+            return path.Replace("%", "%%");
         }
     }
 }

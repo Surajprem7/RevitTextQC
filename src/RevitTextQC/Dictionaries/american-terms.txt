@@ -1,0 +1,25 @@
+# American construction words that the British and Australian dictionaries do not list, although drawings for
+# Gulf and Australian clients use them correctly (British says lift, pavement, tap...).
+# Only words that matter on drawings are listed. Every American word is deliberately NOT accepted, because rare
+# American words (such as "phon") would then hide real typos (such as "Phon" for "Phone").
+# American spellings (color, center, aluminum) are still reported in the United Kingdom and Australia modes.
+# This file is replaced by every update, so do not edit it: add your own words with
+# "Add word to dictionary" or in QC Settings > Spelling, which are kept in your settings.
+elevator
+elevators
+sidewalk
+sidewalks
+faucet
+faucets
+downspout
+downspouts
+lunchroom
+lunchrooms
+plenums
+storefront
+storefronts
+louver
+louvers
+louvered
+shutoff
+shutoffs

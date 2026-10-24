@@ -386,61 +386,52 @@ namespace RevitTextQC.Tests
         }
     }
 
-    public class DialectTests
+    public class AmericanWordTests
     {
-        private static DialectSpellChecker British() => new DialectSpellChecker(
-            new FakeSpellChecker(new[] { "colour", "centre", "organise", "labelled", "aluminium", "grey", "mould", "defence", "catalogue", "lift", "Colour" }),
-            new FakeSpellChecker(new[] { "color", "center", "organize", "labeled", "aluminum", "gray", "mold", "defense", "catalog", "elevator", "restroom", "Color", "elevators" }));
-
-        [Theory]
-        [InlineData("color")]
-        [InlineData("center")]
-        [InlineData("organize")]
-        [InlineData("labeled")]
-        [InlineData("aluminum")]
-        [InlineData("gray")]
-        [InlineData("mold")]
-        [InlineData("defense")]
-        [InlineData("catalog")]
-        [InlineData("Color")]
-        public void An_american_spelling_of_a_word_the_language_has_is_reported(string word)
-        {
-            Assert.False(British().Check(word));
-        }
-
-        [Theory]
-        [InlineData("elevator")]
-        [InlineData("elevators")]
-        [InlineData("restroom")]
-        [InlineData("colour")]
-        [InlineData("lift")]
-        public void An_american_word_or_a_correct_british_one_is_accepted(string word)
-        {
-            Assert.True(British().Check(word));
-        }
-
-        [Fact]
-        public void Words_that_are_wrong_everywhere_are_still_reported_and_suggestions_come_from_the_language()
-        {
-            Assert.False(British().Check("elevatar"));
-            Assert.Empty(British().Suggest("anything"));
-        }
-
-        [Fact]
-        public void The_real_british_and_australian_dictionaries_accept_elevator_but_not_color()
+        private static QcEngine Engine(string language)
         {
             string folder = Path.Combine(AppContext.BaseDirectory, "Dictionaries");
-            foreach (string language in new[] { "en_GB", "en_AU" })
-            {
-                var checker = new DialectSpellChecker(
-                    HunspellSpellChecker.Load(folder, language), HunspellSpellChecker.Load(folder, "en_US"));
-                Assert.True(checker.Check("elevator"), language + " elevator");
-                Assert.True(checker.Check("colour"), language + " colour");
-                Assert.False(checker.Check("color"), language + " color");
-                Assert.False(checker.Check("aluminum"), language + " aluminum");
-                Assert.False(checker.Check("labeled"), language + " labeled");
-                Assert.False(checker.Check("Elevatar"), language + " Elevatar");
-            }
+            var terms = new List<string>();
+            foreach (string file in Directory.GetFiles(folder, "*-terms.txt"))
+                terms.AddRange(File.ReadAllLines(file).Select(l => l.Trim()).Where(l => l.Length > 0 && !l.StartsWith("#")));
+            var settings = new QcSettings { CheckCase = false, CheckWhitespace = false, Language = language };
+            return new QcEngine(settings, HunspellSpellChecker.Load(folder, language), terms);
+        }
+
+        private static List<string> Flagged(QcEngine engine, string text)
+        {
+            var item = new TextItem { Source = TextSource.TextNote, Text = text, Editable = true };
+            return engine.Run(new[] { item }).Select(i => i.Problem.ToLowerInvariant()).OrderBy(w => w).ToList();
+        }
+
+        [Theory]
+        [InlineData("en_GB")]
+        [InlineData("en_AU")]
+        public void Common_american_construction_words_are_accepted_but_american_spellings_are_not(string language)
+        {
+            QcEngine engine = Engine(language);
+            Assert.Empty(Flagged(engine, "Elevator, sidewalk, faucet, restroom, drywall, louver"));
+            Assert.Equal(new[] { "aluminum", "color", "labeled" }, Flagged(engine, "color aluminum labeled colour aluminium labelled"));
+        }
+
+        [Theory]
+        [InlineData("en_GB")]
+        [InlineData("en_AU")]
+        [InlineData("en_US")]
+        public void Typos_are_still_reported_in_every_language(string language)
+        {
+            QcEngine engine = Engine(language);
+            Assert.Equal(new[] { "addess", "projectnumber" }, Flagged(engine, "Addess Projectnumber"));
+        }
+
+        [Fact]
+        public void Only_a_short_list_of_american_words_is_accepted_not_every_american_word()
+        {
+            string file = Path.Combine(AppContext.BaseDirectory, "Dictionaries", "american-terms.txt");
+            List<string> words = File.ReadAllLines(file).Select(l => l.Trim()).Where(l => l.Length > 0 && !l.StartsWith("#")).ToList();
+            Assert.InRange(words.Count, 10, 60);
+            Assert.Contains("elevator", words);
+            Assert.DoesNotContain("phon", words);
         }
     }
 

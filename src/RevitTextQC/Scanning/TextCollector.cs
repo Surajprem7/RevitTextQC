@@ -841,6 +841,8 @@ namespace RevitTextQC.Scanning
                 if (item.Source == TextSource.TitleBlock || item.Source == TextSource.SheetName || item.Source == TextSource.SheetNumber)
                     already.Add((item.Text ?? "").Trim());
 
+            RemoveStaleExports();
+
             string folder = Path.Combine(Path.GetTempPath(), "RevitTextQC", Guid.NewGuid().ToString("N"));
             var failed = new List<string>();
             var clock = System.Diagnostics.Stopwatch.StartNew();
@@ -858,6 +860,7 @@ namespace RevitTextQC.Scanning
                     catch (Exception ex)
                     {
                         // A sheet that will not export must not lose the findings from the others.
+                        Support.Log("title block text of sheet " + sheet.SheetNumber, ex);
                         failed.Add(sheet.SheetNumber + " (" + ex.Message + ")");
                     }
                 }
@@ -875,6 +878,21 @@ namespace RevitTextQC.Scanning
                 Notes.Add($"Reading title block text stopped after {(int)MaxSheetExportTime.TotalSeconds} seconds; {notRead} sheet(s) were not read. Scan fewer sheets.");
         }
 
+        // An export is deleted as soon as it is read. If Revit ended mid-export (a crash), a 30 MB file would
+        // stay behind; anything over a day old in this add-in's own temporary folder is removed.
+        private static void RemoveStaleExports()
+        {
+            try
+            {
+                string root = Path.Combine(Path.GetTempPath(), "RevitTextQC");
+                if (!Directory.Exists(root)) return;
+                foreach (string old in Directory.GetDirectories(root))
+                    if (Directory.GetLastWriteTimeUtc(old) < DateTime.UtcNow.AddDays(-1)) Directory.Delete(old, true);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+
         private void ReadTitleBlockText(ViewSheet sheet, string folder, List<TextItem> items, HashSet<string> already)
         {
             Element titleBlock = new FilteredElementCollector(_doc, sheet.Id)
@@ -890,6 +908,15 @@ namespace RevitTextQC.Scanning
             if (!File.Exists(file)) return;
             List<DxfText> found = DxfTextReader.Read(file);
             File.Delete(file);
+
+            // The title block is found by its layer. A different layer standard would leave it unread, so say so
+            // instead of quietly reporting nothing.
+            if (found.Count > 0 && !found.Any(t => DxfTextReader.IsTitleBlockLayer(t.Layer)) &&
+                !Notes.Any(n => n.StartsWith("No title block layer", StringComparison.Ordinal)))
+            {
+                string layers = string.Join(", ", found.Select(t => t.Layer).Distinct().Take(4));
+                Notes.Add($"No title block layer was found in the export of sheet {sheet.SheetNumber} (layers: {layers}), so the text typed inside its title block was not read.");
+            }
 
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (DxfText text in found)
@@ -963,6 +990,7 @@ namespace RevitTextQC.Scanning
                 catch (Exception ex)
                 {
                     // One view that cannot be replayed must not lose the findings from the others.
+                    Support.Log("drawn text of view " + view.Name, ex);
                     failed.Add("\"" + view.Name + "\" (" + ex.Message + ")");
                 }
             }
