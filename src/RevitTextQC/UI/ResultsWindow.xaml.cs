@@ -87,6 +87,7 @@ namespace RevitTextQC.UI
                     case TextSource.Tag:
                     case TextSource.Schedule:
                     case TextSource.TitleBlock:
+                    case TextSource.TitleBlockText:
                     case TextSource.VisibleText:
                         return string.IsNullOrEmpty(item.Location) ? "(no view)" : item.Location;
                     case TextSource.SheetName:
@@ -114,7 +115,8 @@ namespace RevitTextQC.UI
                     case TextSource.TextNote: return "Text note";
                     case TextSource.Parameter:
                         return Issue.Item.Field == FixApplier.RoomNameField ? "Room name" : "Parameter";
-                    case TextSource.TitleBlock: return "Title block";
+                    case TextSource.TitleBlock: return "Title block field";
+                    case TextSource.TitleBlockText: return "Title block text";
                     case TextSource.Revision: return "Revision";
                     case TextSource.VisibleText: return "Family text";
                     case TextSource.ModelText: return "Model text";
@@ -518,8 +520,10 @@ namespace RevitTextQC.UI
                 _engine?.ResolveSuggestions(issue);
                 single.Refresh();
 
-                DetailMessage.Text = issue.Message +
-                    (issue.Item.Editable ? "" : "  (This text cannot be edited from Text QC; fix it at its source.)");
+                string cannotEdit = issue.Item.Source == TextSource.TitleBlockText
+                    ? "  (This text is typed inside the title block family. Open the title block with Edit Family and correct it there.)"
+                    : "  (This text cannot be edited from Text QC; fix it at its source.)";
+                DetailMessage.Text = issue.Message + (issue.Item.Editable ? "" : cannotEdit);
                 FixBox.Text = ToUi(issue.Suggestion ?? issue.Item.Text);
 
                 bool hasAlternatives = editable && issue.RuleId == SpellingRule.RuleId && issue.Alternatives.Count > 0;

@@ -42,6 +42,8 @@
                     <CheckBox x:Name="ScanKeynotes" Content="Keynote text (entire-project scans only)" />
                     <CheckBox x:Name="KeynotesUsedOnly" Content="Only keynotes assigned to types or materials in this model" Margin="20,3,0,3" />
                     <CheckBox x:Name="ScanTitleBlock" Content="Title block fields and revision text (sheet and project information)" Margin="0,10,0,3" />
+                    <CheckBox x:Name="ScanTitleBlockText" Content="Fixed text typed inside the title block (briefly exports each sheet; slower)"
+                              ToolTip="Revit does not expose the words typed inside a title block family. Each sheet is exported to a temporary file, the title block's text is read from it, and the file is deleted." />
                     <CheckBox x:Name="ScanVisibleText" Content="Text drawn by families and symbols inside views (slower)"
                               ToolTip="Reads every word Revit draws in the views, including labels inside annotation families and symbols. Fixed text inside a title block cannot be read by Revit." />
                     <CheckBox x:Name="ScanParameters" Content="Room, space and area names, plus these text parameters:" Margin="0,10,0,3" />

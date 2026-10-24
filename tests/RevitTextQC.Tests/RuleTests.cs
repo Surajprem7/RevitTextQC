@@ -342,6 +342,50 @@ namespace RevitTextQC.Tests
         }
     }
 
+    public class DxfTextTests
+    {
+        private static readonly string Sample = string.Join("\n", new[]
+        {
+            "0", "SECTION", "2", "ENTITIES",
+            "0", "MTEXT", "8", "G-____-TTLB-OTLN", "10", "2.497", "20", "1.480", "1", "{\\fArial|b0|i0|c0|p34;Consutant}",
+            "0", "MTEXT", "8", "A-____-NOTE-TEXT", "10", "1.0", "20", "2.0", "3", "Part one ", "1", "and part two\\Pnew line",
+            "0", "TEXT", "8", "G-ANNO-TTLB", "10", "0.5", "20", "0.25", "1", "Caf\\U+00E9 %%d",
+            "0", "LINE", "8", "X", "10", "5", "20", "6",
+            "0", "ENDSEC", "0", "EOF", ""
+        });
+
+        [Fact]
+        public void Reads_text_entities_with_layer_and_position_and_ignores_other_entities()
+        {
+            List<DxfText> found = DxfTextReader.Read(new StringReader(Sample));
+            Assert.Equal(3, found.Count);
+
+            Assert.Equal("Consutant", found[0].Text);
+            Assert.Equal("G-____-TTLB-OTLN", found[0].Layer);
+            Assert.Equal(2.497, found[0].X, 3);
+            Assert.Equal(1.480, found[0].Y, 3);
+        }
+
+        [Fact]
+        public void Joins_long_mtext_pieces_and_removes_formatting_codes()
+        {
+            List<DxfText> found = DxfTextReader.Read(new StringReader(Sample));
+            Assert.Equal("Part one and part two\nnew line", found[1].Text);
+            Assert.Equal("Café °", found[2].Text);
+        }
+
+        [Theory]
+        [InlineData("G-____-TTLB-OTLN", true)]
+        [InlineData("G-ANNO-TTLB", true)]
+        [InlineData("Title Block", true)]
+        [InlineData("A-____-NOTE-TEXT", false)]
+        [InlineData("", false)]
+        public void Recognises_the_title_block_layer(string layer, bool expected)
+        {
+            Assert.Equal(expected, DxfTextReader.IsTitleBlockLayer(layer));
+        }
+    }
+
     public class AccentTests
     {
         [Fact]

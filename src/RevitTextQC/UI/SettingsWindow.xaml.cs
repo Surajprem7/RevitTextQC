@@ -94,6 +94,7 @@ namespace RevitTextQC.UI
             ScanKeynotes.IsChecked = s.ScanKeynotes;
             KeynotesUsedOnly.IsChecked = s.KeynotesUsedOnly;
             ScanTitleBlock.IsChecked = s.ScanTitleBlock;
+            ScanTitleBlockText.IsChecked = s.ScanTitleBlockText;
             ScanVisibleText.IsChecked = s.ScanVisibleText;
             ParameterNames.Text = Lines.Join(s.ParameterNames);
 
@@ -143,6 +144,7 @@ namespace RevitTextQC.UI
                 ScanKeynotes = ScanKeynotes.IsChecked == true,
                 KeynotesUsedOnly = KeynotesUsedOnly.IsChecked == true,
                 ScanTitleBlock = ScanTitleBlock.IsChecked == true,
+                ScanTitleBlockText = ScanTitleBlockText.IsChecked == true,
                 ScanVisibleText = ScanVisibleText.IsChecked == true,
                 ParameterNames = Lines.Split(ParameterNames.Text),
 

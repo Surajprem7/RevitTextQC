@@ -70,6 +70,8 @@ namespace RevitTextQC.Core
         [DataMember] public bool ScanKeynotes { get; set; }
         /// <summary>Sheet fields, project information and revision text printed in the title block.</summary>
         [DataMember] public bool ScanTitleBlock { get; set; }
+        /// <summary>Fixed text typed inside the title block family, read by briefly exporting each sheet.</summary>
+        [DataMember] public bool ScanTitleBlockText { get; set; }
         /// <summary>Read the lettering families and symbols draw, from each view's graphics (slower).</summary>
         [DataMember] public bool ScanVisibleText { get; set; }
         [DataMember] public bool KeynotesUsedOnly { get; set; }
@@ -129,6 +131,7 @@ namespace RevitTextQC.Core
             ScanScheduleBody = false;
             ScanKeynotes = true;
             ScanTitleBlock = true;
+            ScanTitleBlockText = true;
             ScanVisibleText = true;
             KeynotesUsedOnly = true;
             ParameterNames = new List<string> { "Comments" };

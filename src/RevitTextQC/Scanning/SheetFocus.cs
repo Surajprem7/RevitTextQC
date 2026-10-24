@@ -17,6 +17,9 @@ namespace RevitTextQC.Scanning
         // About 90 mm each way on paper: a small note is shown with its surroundings, not filling the screen.
         private const double MinHalfFeet = 0.3;
 
+        // Title block lettering is about 2 mm high, so the window is much tighter or it would be unreadable.
+        private const double TitleBlockWordHalfFeet = 0.06;
+
         /// <summary>Handles findings whose text is printed on the open sheet. Returns null when it is not (the caller carries on).</summary>
         public static string ShowItem(UIDocument uidoc, ViewSheet sheet, TextItem item, Element element)
         {
@@ -29,6 +32,21 @@ namespace RevitTextQC.Scanning
 
                 case TextSource.Revision:
                     return ShowTitleBlock(uidoc, sheet, "The revision description is printed in the title block's revision table.");
+
+                case TextSource.TitleBlockText:
+                    // The word's own place on the sheet is known, so zoom right to it.
+                    if (element.OwnerViewId != sheet.Id) return null;
+                    Select(uidoc, new[] { element.Id });
+                    if (item.HasPosition)
+                    {
+                        var word = new BoundingBoxXYZ
+                        {
+                            Min = new XYZ(item.PositionX, item.PositionY - 0.01, 0),
+                            Max = new XYZ(item.PositionX + 0.15, item.PositionY + 0.02, 0)
+                        };
+                        if (Zoom(uidoc, sheet, word, TitleBlockWordHalfFeet)) return "Title block text shown on the sheet.";
+                    }
+                    return ShowTitleBlock(uidoc, sheet, "The text is typed inside the title block.");
 
                 case TextSource.SheetName:
                 case TextSource.SheetNumber:
@@ -224,7 +242,7 @@ namespace RevitTextQC.Scanning
                    && y >= outline.MinimumPoint.Y - slack && y <= outline.MaximumPoint.Y + slack;
         }
 
-        private static bool Zoom(UIDocument uidoc, View view, BoundingBoxXYZ box)
+        private static bool Zoom(UIDocument uidoc, View view, BoundingBoxXYZ box, double minHalf = MinHalfFeet)
         {
             if (box == null) return false;
             UIView uiView = uidoc.GetOpenUIViews().FirstOrDefault(v => v.ViewId == view.Id);
@@ -232,7 +250,7 @@ namespace RevitTextQC.Scanning
 
             double centreX = (box.Min.X + box.Max.X) / 2;
             double centreY = (box.Min.Y + box.Max.Y) / 2;
-            double half = Math.Max(Math.Max(box.Max.X - box.Min.X, box.Max.Y - box.Min.Y) * 0.6, MinHalfFeet);
+            double half = Math.Max(Math.Max(box.Max.X - box.Min.X, box.Max.Y - box.Min.Y) * 0.6, minHalf);
             uiView.ZoomAndCenterRectangle(new XYZ(centreX - half, centreY - half, 0), new XYZ(centreX + half, centreY + half, 0));
             return true;
         }

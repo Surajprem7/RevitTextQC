@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Autodesk.Revit.DB;
@@ -65,6 +66,7 @@ namespace RevitTextQC.Scanning
             if (_settings.ScanSheetsAndViews) CollectDatumNames(items);
             if (_settings.ScanSchedules) CollectSchedules(items);
             if (_settings.ScanTitleBlock) CollectTitleBlock(items);
+            if (_settings.ScanTitleBlockText) CollectTitleBlockText(items);
             if (_settings.ScanVisibleText) CollectVisibleText(items);
             if (_settings.ScanKeynotes && _viewIds == null) CollectKeynotes(items);
             return items;
@@ -389,7 +391,8 @@ namespace RevitTextQC.Scanning
                     return Switch(_settings.ScanParameters, "Only the parameters listed above");
 
                 case BuiltInCategory.OST_TitleBlocks:
-                    return Switch(_settings.ScanTitleBlock, "Checked (sheet fields)");
+                    return _settings.ScanTitleBlockText && _settings.ScanTitleBlock ? "Checked (fields and fixed text)"
+                         : Switch(_settings.ScanTitleBlock || _settings.ScanTitleBlockText, "Checked (partly)");
 
                 case BuiltInCategory.OST_Viewports:
                     return Switch(_settings.ScanSheetsAndViews, "Checked (view names)");
@@ -808,6 +811,104 @@ namespace RevitTextQC.Scanning
                     Field = name,
                     Editable = true,
                     SkipSpelling = PersonField.IsMatch(name)
+                });
+            }
+        }
+
+        // ---- fixed text typed inside the title block -----------------------------------------------
+
+        private const int MaxSheetExports = 12;
+        private static readonly TimeSpan MaxSheetExportTime = TimeSpan.FromSeconds(40);
+
+        /// <summary>
+        /// Revit's API does not expose the words typed inside a title block family, and will not replay a sheet.
+        /// A sheet can be exported to DXF, which contains everything printed on it with each piece of text on a
+        /// layer, so the title block's layer is read from a temporary export. The file is deleted straight away.
+        /// </summary>
+        private void CollectTitleBlockText(List<TextItem> items)
+        {
+            List<ViewSheet> sheets = SheetsInScope().Where(s => !s.IsTemplate).ToList();
+            if (sheets.Count == 0) return;
+            if (sheets.Count > MaxSheetExports)
+            {
+                Notes.Add($"Title block text was not read: {sheets.Count} sheets is more than {MaxSheetExports}. Choose fewer sheets.");
+                return;
+            }
+
+            // Values already read from sheet and project fields; the export prints them too, and each should be reported once.
+            var already = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (TextItem item in items)
+                if (item.Source == TextSource.TitleBlock || item.Source == TextSource.SheetName || item.Source == TextSource.SheetNumber)
+                    already.Add((item.Text ?? "").Trim());
+
+            string folder = Path.Combine(Path.GetTempPath(), "RevitTextQC", Guid.NewGuid().ToString("N"));
+            var failed = new List<string>();
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            int notRead = 0;
+            try
+            {
+                Directory.CreateDirectory(folder);
+                foreach (ViewSheet sheet in sheets)
+                {
+                    if (clock.Elapsed > MaxSheetExportTime) { notRead++; continue; }
+                    try
+                    {
+                        ReadTitleBlockText(sheet, folder, items, already);
+                    }
+                    catch (Exception ex)
+                    {
+                        // A sheet that will not export must not lose the findings from the others.
+                        failed.Add(sheet.SheetNumber + " (" + ex.Message + ")");
+                    }
+                }
+            }
+            finally
+            {
+                try { Directory.Delete(folder, true); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+
+            if (failed.Count > 0)
+                Notes.Add("Could not read the title block text of sheet " + string.Join("; ", failed.Take(3)) + (failed.Count > 3 ? "..." : "") + ".");
+            if (notRead > 0)
+                Notes.Add($"Reading title block text stopped after {(int)MaxSheetExportTime.TotalSeconds} seconds; {notRead} sheet(s) were not read. Scan fewer sheets.");
+        }
+
+        private void ReadTitleBlockText(ViewSheet sheet, string folder, List<TextItem> items, HashSet<string> already)
+        {
+            Element titleBlock = new FilteredElementCollector(_doc, sheet.Id)
+                .OfCategory(BuiltInCategory.OST_TitleBlocks).WhereElementIsNotElementType().FirstOrDefault();
+            if (titleBlock == null) return;
+
+            // Feet, so the text positions are sheet coordinates and the add-in can zoom to the word.
+            var options = new DXFExportOptions { TargetUnit = ExportUnit.Foot };
+            string name = "sheet-" + Guid.NewGuid().ToString("N");
+            if (!_doc.Export(folder, name, new List<ElementId> { sheet.Id }, options)) return;
+
+            string file = Path.Combine(folder, name + ".dxf");
+            if (!File.Exists(file)) return;
+            List<DxfText> found = DxfTextReader.Read(file);
+            File.Delete(file);
+
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (DxfText text in found)
+            {
+                if (!DxfTextReader.IsTitleBlockLayer(text.Layer)) continue;
+                string words = text.Text.Replace("\n", " ").Trim();
+                if (!words.Any(char.IsLetter) || already.Contains(words) || !seen.Add(words)) continue;
+
+                items.Add(new TextItem
+                {
+                    ElementId = titleBlock.Id.Value,
+                    Source = TextSource.TitleBlockText,
+                    Text = words,
+                    Location = sheet.SheetNumber,
+                    Field = "Fixed text",
+                    Editable = false,
+                    HasPosition = true,
+                    PositionX = text.X,
+                    PositionY = text.Y
                 });
             }
         }

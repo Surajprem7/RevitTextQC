@@ -220,6 +220,15 @@ namespace RevitTextQC.Scanning
                     }
                     return "This is a project information field (Manage > Project Information). Press Apply fix to change it here.";
 
+                case TextSource.TitleBlockText:
+                    if (doc.GetElement(element.OwnerViewId) is ViewSheet owningSheet)
+                    {
+                        if (!openViews) return "This title block text is on sheet " + owningSheet.SheetNumber + ". Press Show to open the sheet.";
+                        uidoc.RequestViewChange(owningSheet);
+                        return null;
+                    }
+                    return "This text is typed inside the title block family.";
+
                 case TextSource.TextNoteType:
                 case TextSource.DimensionType:
                     Type instanceClass = item.Source == TextSource.TextNoteType ? typeof(TextNote) : typeof(Dimension);

@@ -24,6 +24,8 @@ namespace RevitTextQC.Core
         Revision,
         /// <summary>Text drawn by a family or title block, read from the view's graphics.</summary>
         VisibleText,
+        /// <summary>Fixed text typed inside the title block family, read from a temporary export of the sheet.</summary>
+        TitleBlockText,
         /// <summary>A text note type (style check only).</summary>
         TextNoteType,
         /// <summary>A dimension type (style check only).</summary>
@@ -88,6 +90,11 @@ namespace RevitTextQC.Core
 
         /// <summary>The view the text was read from, when known (0 when not). Used to find it on a sheet.</summary>
         public long ViewId { get; set; }
+
+        /// <summary>The text's place on its sheet, in feet from the sheet's lower left corner, when known.</summary>
+        public bool HasPosition { get; set; }
+        public double PositionX { get; set; }
+        public double PositionY { get; set; }
 
         public bool IsType => Source == TextSource.TextNoteType || Source == TextSource.DimensionType;
 
