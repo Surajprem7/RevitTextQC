@@ -40,14 +40,29 @@ namespace RevitTextQC.UI
     }
 
     /// <summary>One line of the findings grid.</summary>
-    public class IssueRow
+    public class IssueRow : INotifyPropertyChanged
     {
         public QcIssue Issue { get; }
+
+        public event PropertyChangedEventHandler PropertyChanged;
 
         public IssueRow(QcIssue issue)
         {
             Issue = issue;
         }
+
+        /// <summary>Call after the issue's suggestion was worked out later, so the grid shows it.</summary>
+        public void Refresh()
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Suggestion)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Message)));
+        }
+
+        /// <summary>What is wrong, in a few words: the misspelled word, the stray spaces, the unapproved font.</summary>
+        public string Problem => string.IsNullOrEmpty(Issue.Problem) ? Issue.Message : Issue.Problem;
+
+        /// <summary>The fix for <see cref="Problem"/>, short.</summary>
+        public string Suggestion => Issue.Replacement ?? "";
 
         public string Severity => Issue.Severity.ToString();
         public string Rule => Issue.RuleName;
@@ -71,6 +86,8 @@ namespace RevitTextQC.UI
                     case TextSource.Dimension:
                     case TextSource.Tag:
                     case TextSource.Schedule:
+                    case TextSource.TitleBlock:
+                    case TextSource.VisibleText:
                         return string.IsNullOrEmpty(item.Location) ? "(no view)" : item.Location;
                     case TextSource.SheetName:
                     case TextSource.SheetNumber:
@@ -97,6 +114,9 @@ namespace RevitTextQC.UI
                     case TextSource.TextNote: return "Text note";
                     case TextSource.Parameter:
                         return Issue.Item.Field == FixApplier.RoomNameField ? "Room name" : "Parameter";
+                    case TextSource.TitleBlock: return "Title block";
+                    case TextSource.Revision: return "Revision";
+                    case TextSource.VisibleText: return "Family text";
                     case TextSource.ModelText: return "Model text";
                     case TextSource.GridName: return "Grid name";
                     case TextSource.LevelName: return "Level name";
@@ -219,13 +239,26 @@ namespace RevitTextQC.UI
                 return;
             }
 
-            ScanScope scope = ScopeBox.SelectedIndex == 1 ? ScanScope.EntireProject : ScanScope.ActiveView;
+            bool selected = ScopeBox.SelectedIndex == 1;
+            List<DB.ElementId> chosen = null;
+            if (selected)
+            {
+                chosen = _picked.Select(id => new DB.ElementId(id)).Where(id => uidoc.Document.GetElement(id) is DB.View).ToList();
+                if (chosen.Count == 0)
+                {
+                    SetStatus("Press Choose... and tick the views or sheets to scan.");
+                    return;
+                }
+            }
+
             Mouse.OverrideCursor = Cursors.Wait;
             try
             {
                 var watch = Stopwatch.StartNew();
                 DB.Document doc = uidoc.Document;
-                var collector = new TextCollector(doc, uidoc.ActiveView, scope, App.Settings);
+                var collector = selected
+                    ? new TextCollector(doc, chosen, App.Settings)
+                    : new TextCollector(doc, uidoc.ActiveView, ScanScope.ActiveView, App.Settings);
                 _items = collector.Collect();
                 _styled = collector.StyledElements.ToList();
                 _engine = ScanService.CreateEngine(App.Settings);
@@ -237,16 +270,67 @@ namespace RevitTextQC.UI
                 UpdateRuleFilter();
                 RefreshFindGroups();
 
-                string where = scope == ScanScope.EntireProject ? "entire project" : "\"" + uidoc.ActiveView?.Name + "\"";
+                string where = selected ? chosen.Count + " chosen view(s) / sheet(s)" : "\"" + uidoc.ActiveView?.Name + "\"";
                 string status = $"{issues.Count} finding(s) in {_items.Count} texts — {doc.Title}, {where} ({watch.ElapsedMilliseconds} ms).";
                 if (_engine.ConfigurationWarnings.Count > 0)
                     status += "  ⚠ " + string.Join(" ", _engine.ConfigurationWarnings);
+                if (collector.Notes.Count > 0) status += "  ⚠ " + string.Join(" ", collector.Notes);
                 SetStatus(status);
             }
             finally
             {
                 Mouse.OverrideCursor = null;
             }
+        }
+
+        // ---- scope: the open view, or views and sheets the user ticks -------------------------
+
+        private readonly List<long> _picked = new List<long>();
+
+        private void OnScopeChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!_ready) return;
+            Safely(() =>
+            {
+                ChooseButton.IsEnabled = ScopeBox.SelectedIndex == 1;
+                UpdateChosenText();
+                if (ScopeBox.SelectedIndex == 1 && _picked.Count == 0) OnChooseViews(sender, e);
+            });
+        }
+
+        private void UpdateChosenText()
+        {
+            ChosenText.Text = ScopeBox.SelectedIndex != 1 ? "" : _picked.Count == 0 ? "none chosen" : _picked.Count + " chosen";
+        }
+
+        private void OnChooseViews(object sender, RoutedEventArgs e)
+        {
+            IntPtr owner = new WindowInteropHelper(this).Handle;
+            RevitDispatcher.Post(app =>
+            {
+                RUI.UIDocument uidoc = app.ActiveUIDocument;
+                if (uidoc == null)
+                {
+                    SetStatus("Open a project first.");
+                    return;
+                }
+
+                List<ViewChoice> choices = TextCollector.ListViews(uidoc.Document);
+                foreach (ViewChoice choice in choices) choice.IsChecked = _picked.Contains(choice.Id);
+
+                var picker = new ViewPickerWindow(choices);
+                new WindowInteropHelper(picker).Owner = owner;
+                if (picker.ShowDialog() != true)
+                {
+                    if (_picked.Count == 0) ScopeBox.SelectedIndex = 0; // nothing chosen: go back to the open view
+                    return;
+                }
+
+                _picked.Clear();
+                _picked.AddRange(picker.ChosenIds);
+                UpdateChosenText();
+                SetStatus(_picked.Count == 0 ? "No views or sheets chosen." : _picked.Count + " view(s) / sheet(s) chosen. Press Scan.");
+            });
         }
 
         private void OnScan(object sender, RoutedEventArgs e)
@@ -432,6 +516,7 @@ namespace RevitTextQC.UI
                 QcIssue issue = single.Issue;
                 // Suggestions skipped during a large scan are worked out now, for this one word.
                 _engine?.ResolveSuggestions(issue);
+                single.Refresh();
 
                 DetailMessage.Text = issue.Message +
                     (issue.Item.Editable ? "" : "  (This text cannot be edited from Text QC; fix it at its source.)");
@@ -459,7 +544,8 @@ namespace RevitTextQC.UI
             }
 
             List<long> ids = selected.Select(r => r.Issue.Item)
-                .Where(i => !i.IsType && i.Source != TextSource.Keynote)
+                .Where(i => !i.IsType && i.Source != TextSource.Keynote && i.Source != TextSource.Revision
+                            && i.Source != TextSource.TitleBlock)
                 .Select(i => i.ElementId).Distinct().ToList();
             InRevit(uidoc => SetStatus($"Selected {FixApplier.Select(uidoc, ids)} element(s) in Revit."));
         }

@@ -93,6 +93,8 @@ namespace RevitTextQC.UI
             ScanScheduleBody.IsChecked = s.ScanScheduleBody;
             ScanKeynotes.IsChecked = s.ScanKeynotes;
             KeynotesUsedOnly.IsChecked = s.KeynotesUsedOnly;
+            ScanTitleBlock.IsChecked = s.ScanTitleBlock;
+            ScanVisibleText.IsChecked = s.ScanVisibleText;
             ParameterNames.Text = Lines.Join(s.ParameterNames);
 
             CheckSpelling.IsChecked = s.CheckSpelling;
@@ -140,6 +142,8 @@ namespace RevitTextQC.UI
                 ScanScheduleBody = ScanScheduleBody.IsChecked == true,
                 ScanKeynotes = ScanKeynotes.IsChecked == true,
                 KeynotesUsedOnly = KeynotesUsedOnly.IsChecked == true,
+                ScanTitleBlock = ScanTitleBlock.IsChecked == true,
+                ScanVisibleText = ScanVisibleText.IsChecked == true,
                 ParameterNames = Lines.Split(ParameterNames.Text),
 
                 CheckSpelling = CheckSpelling.IsChecked == true,

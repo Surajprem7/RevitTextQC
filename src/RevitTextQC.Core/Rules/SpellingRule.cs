@@ -51,7 +51,7 @@ namespace RevitTextQC.Core.Rules
 
         public IEnumerable<QcIssue> Check(TextItem item)
         {
-            if (!item.IsProse || string.IsNullOrWhiteSpace(item.Text)) yield break;
+            if (!item.IsProse || item.SkipSpelling || string.IsNullOrWhiteSpace(item.Text)) yield break;
 
             var reported = new HashSet<string>(StringComparer.Ordinal);
             foreach (Match match in WordRegex.Matches(item.Text))
@@ -67,6 +67,7 @@ namespace RevitTextQC.Core.Rules
                     RuleName = Name,
                     Severity = Severity.Warning,
                     Word = word,
+                    Problem = word,
                     Message = $"\"{word}\" is not in the dictionary."
                 };
 
@@ -95,6 +96,8 @@ namespace RevitTextQC.Core.Rules
 
             issue.Alternatives = options;
             issue.Suggestion = ReplaceWord(issue.Item.Text, word, options[0]);
+            // The column has room for two; the first is not always the best, so show a second choice.
+            issue.Replacement = string.Join(" / ", options.Take(2));
             issue.Message = $"\"{word}\" is not in the dictionary. Did you mean: {string.Join(", ", options)}?";
         }
 

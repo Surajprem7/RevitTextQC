@@ -27,6 +27,18 @@ namespace RevitTextQC.Scanning
                 ((ModelText)element).Text = newText;
                 return;
             }
+            if (item.Source == TextSource.Revision)
+            {
+                ((Revision)element).Description = newText;
+                return;
+            }
+            if (item.Source == TextSource.TitleBlock)
+            {
+                Parameter field = element.LookupParameter(item.Field);
+                if (field == null || field.IsReadOnly) throw new InvalidOperationException("The field is read-only.");
+                field.Set(newText);
+                return;
+            }
 
             switch (item.Source)
             {
@@ -169,6 +181,18 @@ namespace RevitTextQC.Scanning
             {
                 case TextSource.Keynote:
                     return $"Keynote {item.Field} is defined in the keynote file, not in a view.";
+
+                case TextSource.Revision:
+                    return "Revision text is edited under Manage > Sheet Issues/Revisions. Press Apply fix to change it here.";
+
+                case TextSource.TitleBlock:
+                    if (element is ViewSheet titleSheet)
+                    {
+                        if (!openViews) return "Press Show to open this sheet.";
+                        uidoc.RequestViewChange(titleSheet);
+                        return null;
+                    }
+                    return "This is a project information field (Manage > Project Information). Press Apply fix to change it here.";
 
                 case TextSource.TextNoteType:
                 case TextSource.DimensionType:

@@ -342,6 +342,78 @@ namespace RevitTextQC.Tests
         }
     }
 
+    public class ResultColumnTests
+    {
+        private static TextItem Note(string text) => new TextItem { Source = TextSource.TextNote, Text = text, Editable = true };
+
+        [Fact]
+        public void Spelling_problem_is_the_word_and_the_suggestion_is_its_replacement()
+        {
+            var rule = new SpellingRule(
+                new FakeSpellChecker(new[] { "see", "concrete" }, new Dictionary<string, string> { { "concret", "concrete" } }), null, 3);
+            QcIssue issue = Assert.Single(rule.Check(Note("SEE CONCRET")));
+            Assert.Equal("CONCRET", issue.Problem);
+            Assert.Equal("CONCRETE", issue.Replacement);
+        }
+
+        [Fact]
+        public void Case_problem_lists_the_words_and_the_suggestion_their_new_form()
+        {
+            var rule = new CaseRule(new QcSettings());
+            QcIssue issue = Assert.Single(rule.Check(Note("PROVIDE concrete SLAB, base 600x600")));
+            Assert.Equal("concrete, base", issue.Problem);
+            Assert.Equal("CONCRETE, BASE", issue.Replacement);
+        }
+
+        [Fact]
+        public void Spacing_problem_says_what_and_where()
+        {
+            QcIssue issue = Assert.Single(new WhitespaceRule().Check(Note("NOTE  ONE ")));
+            Assert.Contains("double spaces", issue.Problem);
+            Assert.Contains("1 space after the last character", issue.Problem);
+        }
+
+        [Fact]
+        public void Style_problem_names_the_font_and_the_suggestion_the_approved_ones()
+        {
+            var settings = new QcSettings();
+            settings.TextNoteStandards.AllowedFonts.Add("Arial");
+            var type = new TextItem
+            {
+                Source = TextSource.TextNoteType, Text = "Text 1", UsageCount = 2,
+                Style = new TextStyleInfo { TypeName = "Text 1", Font = "Romans", SizeMm = 2.5, WidthFactor = 1 }
+            };
+            QcIssue issue = Assert.Single(new TextStyleRule(settings).Check(type));
+            Assert.Equal("Font Romans", issue.Problem);
+            Assert.Equal("Arial", issue.Replacement);
+        }
+
+        [Fact]
+        public void Names_in_title_block_fields_are_not_spell_checked_but_other_fields_are()
+        {
+            var settings = new QcSettings { CheckCase = false, CheckWhitespace = false };
+            var engine = new QcEngine(settings, new FakeSpellChecker(new[] { "Project", "Address" }));
+
+            var person = new TextItem { Source = TextSource.TitleBlock, Text = "Suraj Prem", Field = "Drawn By", SkipSpelling = true };
+            var address = new TextItem { Source = TextSource.TitleBlock, Text = "Projct Address", Field = "Project Address" };
+            List<QcIssue> issues = engine.Run(new[] { person, address });
+
+            QcIssue only = Assert.Single(issues);
+            Assert.Equal("Projct", only.Problem);
+        }
+
+        [Fact]
+        public void Title_block_and_revision_text_are_ordinary_text_for_spacing_and_forbidden_terms()
+        {
+            var settings = new QcSettings { CheckSpelling = false, CheckCase = false };
+            settings.ForbiddenTerms.Add(new ForbiddenTerm { Term = "TBC", Replacement = "to be confirmed" });
+            var engine = new QcEngine(settings, null);
+
+            var revision = new TextItem { Source = TextSource.Revision, Text = "ISSUED  FOR TBC", Field = "Description", Editable = true };
+            Assert.Equal(2, engine.Run(new[] { revision }).Count);
+        }
+    }
+
     public class TextFinderTests
     {
         private static StyledElement El(long id, TextSource kind, string type, string font, double size, bool bold = false) =>

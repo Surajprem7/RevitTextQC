@@ -83,7 +83,7 @@ namespace RevitTextQC.Core.Rules
 
         private QcIssue Issue(TextItem item, Severity severity, string message)
         {
-            return new QcIssue { Item = item, RuleId = Id, RuleName = Name, Severity = severity, Message = message };
+            return new QcIssue { Item = item, RuleId = Id, RuleName = Name, Severity = severity, Message = message, Problem = item.Text };
         }
     }
 }

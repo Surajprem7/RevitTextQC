@@ -26,10 +26,13 @@
         <!-- Scan bar, shared by both tabs -->
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8" LastChildFill="False">
             <TextBlock Text="Scope:" VerticalAlignment="Center" Margin="0,0,6,0" />
-            <ComboBox x:Name="ScopeBox" Width="140" Margin="0,0,6,0" SelectedIndex="0">
+            <ComboBox x:Name="ScopeBox" Width="165" Margin="0,0,6,0" SelectedIndex="0" SelectionChanged="OnScopeChanged">
                 <ComboBoxItem Content="Active view / sheet" />
-                <ComboBoxItem Content="Entire project" />
+                <ComboBoxItem Content="Selected views / sheets" />
             </ComboBox>
+            <Button x:Name="ChooseButton" Content="Choose..." Click="OnChooseViews" IsEnabled="False" MinWidth="0" Padding="10,4"
+                    ToolTip="Tick the views and sheets to scan." />
+            <TextBlock x:Name="ChosenText" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="#666" />
             <Button x:Name="ScanButton" Content="Scan" Click="OnScan" FontWeight="SemiBold" />
             <CheckBox x:Name="HighlightBox" Content="Highlight in Revit when I click a row" IsChecked="True"
                       VerticalAlignment="Center" Margin="12,0,0,0"
@@ -132,7 +135,11 @@
                             </GroupStyle>
                         </DataGrid.GroupStyle>
                         <DataGrid.Columns>
-                            <DataGridTemplateColumn Header="Show" Width="56">
+                            <!-- Fixed widths only: with a stretch column the grid squeezes every other column. -->
+                            <DataGridTextColumn Header="Error in the text" Binding="{Binding Problem, Mode=OneWay}" Width="150" />
+                            <DataGridTextColumn Header="Suggestion" Binding="{Binding Suggestion, Mode=OneWay}" Width="150" />
+                            <DataGridTextColumn Header="Element Id" Binding="{Binding ElementId, Mode=OneWay}" Width="85" />
+                            <DataGridTemplateColumn Header="Show" Width="62" MinWidth="62" MaxWidth="62">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <Button Content="Show" Click="OnRowShowClick" Padding="6,0" Margin="2,1" MinWidth="0"
@@ -140,13 +147,11 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTextColumn Header="Rule" Binding="{Binding Rule, Mode=OneWay}" Width="110" />
-                            <DataGridTextColumn Header="Text" Binding="{Binding Text, Mode=OneWay}" Width="2*" />
-                            <DataGridTextColumn Header="Finding" Binding="{Binding Message, Mode=OneWay}" Width="3*" />
+                            <DataGridTextColumn Header="Rule" Binding="{Binding Rule, Mode=OneWay}" Width="100" />
+                            <DataGridTextColumn Header="Full text" Binding="{Binding Text, Mode=OneWay}" Width="230" />
+                            <DataGridTextColumn Header="Finding" Binding="{Binding Message, Mode=OneWay}" Width="300" />
                             <DataGridTextColumn Header="Found in" Binding="{Binding Source, Mode=OneWay}" Width="100" />
-                            <DataGridTextColumn Header="Where" Binding="{Binding Location, Mode=OneWay}" Width="*" />
-                            <DataGridTextColumn Header="Fix" Binding="{Binding FixLabel, Mode=OneWay}" Width="44" />
-                            <DataGridTextColumn Header="Element Id" Binding="{Binding ElementId, Mode=OneWay}" Width="80" />
+                            <DataGridTextColumn Header="Where" Binding="{Binding Location, Mode=OneWay}" Width="260" />
                         </DataGrid.Columns>
                     </DataGrid>
                 </DockPanel>
@@ -208,13 +213,13 @@
                             <DataGrid x:Name="ElementsGrid" SelectionMode="Extended"
                                       SelectionChanged="OnElementSelected" MouseDoubleClick="OnElementDoubleClick">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Text" Binding="{Binding Text, Mode=OneWay}" Width="2*" />
-                                    <DataGridTextColumn Header="Kind" Binding="{Binding Kind, Mode=OneWay}" Width="74" />
-                                    <DataGridTextColumn Header="Type" Binding="{Binding TypeName, Mode=OneWay}" Width="*" />
+                                    <DataGridTextColumn Header="Text" Binding="{Binding Text, Mode=OneWay}" Width="220" />
+                                    <DataGridTextColumn Header="Kind" Binding="{Binding Kind, Mode=OneWay}" Width="80" />
+                                    <DataGridTextColumn Header="Type" Binding="{Binding TypeName, Mode=OneWay}" Width="170" />
                                     <DataGridTextColumn Header="Size" Binding="{Binding Size, Mode=OneWay}" Width="62" />
                                     <DataGridTextColumn Header="Font" Binding="{Binding Font, Mode=OneWay}" Width="90" />
                                     <DataGridTextColumn Header="Style" Binding="{Binding Style, Mode=OneWay}" Width="80" />
-                                    <DataGridTextColumn Header="Where" Binding="{Binding Location, Mode=OneWay}" Width="*" />
+                                    <DataGridTextColumn Header="Where" Binding="{Binding Location, Mode=OneWay}" Width="220" />
                                     <DataGridTextColumn Header="Element Id" Binding="{Binding ElementId, Mode=OneWay}" Width="80" />
                                 </DataGrid.Columns>
                             </DataGrid>

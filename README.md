@@ -23,6 +23,12 @@ and keeps itself up to date from this repository's GitHub releases.
   annotations and revision clouds are read through this list, because their label text is not exposed by Revit.
 - Tags, including room, area and space tags (the displayed tag text)
 - Sheet numbers, sheet names, view names, grid names and level names
+- Title block text: the sheet's own fields (Drawn By, Issue Date...), the project information and the
+  revision descriptions printed on the sheet. Names in "by" fields are not spell checked.
+- Text drawn by families and title blocks, read from the view itself: labels inside annotation families,
+  fixed text in title blocks, keynote symbols and viewport titles. This reads up to 30 views at a time and is
+  slower; switch it off in **QC Settings** if it is not needed. It reports the text and where it is, but the
+  text itself has to be fixed in the family or title block.
 - Schedule titles and column headings (cell values optional)
 - Keynote text for keynotes assigned in the model (entire-project scans)
 
@@ -49,7 +55,8 @@ The first time Revit loads the add-in it asks whether to trust it; choose **Alwa
 ## Use
 
 1. Open the **Text QC** tab and press **Run Text QC**.
-2. Choose **Active view / sheet** or **Entire project** and press **Scan**.
+2. Choose **Active view / sheet**, or **Selected views / sheets** (press **Choose...** and tick them; a sheet
+   includes the views placed on it and its title block), then press **Scan**.
 3. Click a finding to highlight it in Revit. Text on the open sheet is highlighted without leaving the
    sheet; double-click (or **Show in Revit**) to open its view and zoom to it. **Group by** arranges the
    findings by rule, view/sheet, kind of text or level.

@@ -44,6 +44,8 @@ namespace RevitTextQC.Core.Rules
             string expected = Convert(item.Text, mode, _exceptions);
             if (expected == item.Text) yield break;
 
+            List<KeyValuePair<string, string>> changes = Changes(item.Text, expected);
+
             yield return new QcIssue
             {
                 Item = item,
@@ -51,25 +53,39 @@ namespace RevitTextQC.Core.Rules
                 RuleName = Name,
                 Severity = Severity.Warning,
                 Suggestion = expected,
-                Message = $"Text should be {Describe(mode)}.{Offenders(item.Text, expected)}"
+                Message = $"Text should be {Describe(mode)}.{Offenders(changes)}",
+                Problem = Words(changes.Select(c => c.Key)),
+                Replacement = Words(changes.Select(c => c.Value))
             };
         }
 
-        // Names the words that break the rule, so nobody has to hunt a long note for one stray lowercase letter.
-        private static string Offenders(string original, string expected)
+        // The words that break the rule and what each should become, so nobody has to hunt a long note
+        // for one stray lowercase letter.
+        private static List<KeyValuePair<string, string>> Changes(string original, string expected)
         {
-            if (original.Length != expected.Length) return "";
+            var changes = new List<KeyValuePair<string, string>>();
+            if (original.Length != expected.Length) return changes;
 
-            var words = new List<string>();
             foreach (Match m in TokenRegex.Matches(original))
             {
                 if (string.CompareOrdinal(original, m.Index, expected, m.Index, m.Length) == 0) continue;
-                if (!words.Contains(m.Value)) words.Add(m.Value);
+                if (changes.All(c => c.Key != m.Value))
+                    changes.Add(new KeyValuePair<string, string>(m.Value, expected.Substring(m.Index, m.Length)));
             }
-            if (words.Count == 0) return "";
+            return changes;
+        }
 
-            string list = string.Join(", ", words.Take(3).Select(w => "\"" + w + "\""));
-            return " Needs changing: " + list + (words.Count > 3 ? " and " + (words.Count - 3) + " more" : "") + ".";
+        private static string Offenders(List<KeyValuePair<string, string>> changes)
+        {
+            if (changes.Count == 0) return "";
+            return " Needs changing: " + string.Join(", ", changes.Take(3).Select(c => "\"" + c.Key + "\"")) +
+                   (changes.Count > 3 ? " and " + (changes.Count - 3) + " more" : "") + ".";
+        }
+
+        private static string Words(IEnumerable<string> words)
+        {
+            List<string> all = words.ToList();
+            return string.Join(", ", all.Take(3)) + (all.Count > 3 ? " +" + (all.Count - 3) + " more" : "");
         }
 
         private CaseMode ModeFor(TextSource source)
@@ -204,7 +220,9 @@ namespace RevitTextQC.Core.Rules
                 RuleName = Name,
                 Severity = Severity.Info,
                 Suggestion = fixedText,
-                Message = "Spacing: " + string.Join(", ", found) + "." + SourceHint(item)
+                Message = "Spacing: " + string.Join(", ", found) + "." + SourceHint(item),
+                Problem = string.Join(", ", found),
+                Replacement = "remove the extra spaces"
             };
         }
     }
@@ -249,6 +267,8 @@ namespace RevitTextQC.Core.Rules
                     RuleName = Name,
                     Severity = Severity.Warning,
                     Word = pair.Key.Term.Trim(),
+                    Problem = match.Value,
+                    Replacement = hasReplacement ? replacement : "",
                     Suggestion = hasReplacement
                         ? pair.Value.Replace(item.Text, m => SpellingRule.MatchCase(m.Value, replacement))
                         : null,

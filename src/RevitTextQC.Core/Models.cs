@@ -18,6 +18,12 @@ namespace RevitTextQC.Core
         ModelText,
         GridName,
         LevelName,
+        /// <summary>A sheet or project information field printed in the title block.</summary>
+        TitleBlock,
+        /// <summary>A revision description.</summary>
+        Revision,
+        /// <summary>Text drawn by a family or title block, read from the view's graphics.</summary>
+        VisibleText,
         /// <summary>A text note type (style check only).</summary>
         TextNoteType,
         /// <summary>A dimension type (style check only).</summary>
@@ -77,6 +83,9 @@ namespace RevitTextQC.Core
         /// <summary>The add-in can write a corrected value back to the model.</summary>
         public bool Editable { get; set; }
 
+        /// <summary>The text is names or codes (Drawn By, Checked By...) that a dictionary cannot judge.</summary>
+        public bool SkipSpelling { get; set; }
+
         public bool IsType => Source == TextSource.TextNoteType || Source == TextSource.DimensionType;
 
         /// <summary>Free text that spelling, whitespace and forbidden-term rules apply to.</summary>
@@ -110,6 +119,13 @@ namespace RevitTextQC.Core
 
         /// <summary>The misspelled word or forbidden term the issue is about, if any.</summary>
         public string Word { get; set; }
+
+        /// <summary>Short form of what is wrong (the misspelled word, the stray spaces...), for the first column of the results.</summary>
+        public string Problem { get; set; }
+
+        /// <summary>Short form of the fix for <see cref="Problem"/>, or null when there is none.</summary>
+        public string Replacement { get; set; }
+
 
         public bool CanFix => Suggestion != null && Item != null && Item.Editable && Suggestion != Item.Text;
     }

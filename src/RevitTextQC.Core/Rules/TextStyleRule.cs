@@ -29,7 +29,8 @@ namespace RevitTextQC.Core.Rules
             {
                 if (_settings.FlagInlineFormatting && item.HasInlineFormatting)
                     yield return Issue(item, Severity.Info,
-                        "Text note has manual bold, italic or underline formatting that overrides its text type.");
+                        "Text note has manual bold, italic or underline formatting that overrides its text type.",
+                        "Manual formatting", "use the text type");
                 yield break;
             }
 
@@ -46,7 +47,8 @@ namespace RevitTextQC.Core.Rules
             if (standards.AllowedTypeNames.Count > 0 && !standards.AllowedTypeNames.Any(p => WildcardMatch(p, style.TypeName)))
             {
                 yield return Issue(item, Severity.Warning,
-                    $"{kind} \"{style.TypeName}\" ({style.Font}, {size} mm) is not an approved type; {used}.");
+                    $"{kind} \"{style.TypeName}\" ({style.Font}, {size} mm) is not an approved type; {used}.",
+                    $"Type \"{style.TypeName}\"", "an approved type: " + Few(standards.AllowedTypeNames));
                 yield break;
             }
 
@@ -55,20 +57,25 @@ namespace RevitTextQC.Core.Rules
                 !standards.AllowedFonts.Any(f => string.Equals(f.Trim(), style.Font, StringComparison.OrdinalIgnoreCase)))
             {
                 yield return Issue(item, Severity.Warning,
-                    $"Font \"{style.Font}\" is not approved (approved: {string.Join(", ", standards.AllowedFonts)}); {used}.");
+                    $"Font \"{style.Font}\" is not approved (approved: {string.Join(", ", standards.AllowedFonts)}); {used}.",
+                    $"Font {style.Font}", Few(standards.AllowedFonts));
             }
 
             if (standards.AllowedSizesMm.Count > 0 && style.SizeMm > 0 &&
                 !standards.AllowedSizesMm.Any(s => Math.Abs(s - style.SizeMm) <= SizeToleranceMm))
             {
                 yield return Issue(item, Severity.Warning,
-                    $"Text size {size} mm is not approved (approved: {string.Join(", ", standards.AllowedSizesMm.Select(FormatMm))} mm); {used}.");
+                    $"Text size {size} mm is not approved (approved: {string.Join(", ", standards.AllowedSizesMm.Select(FormatMm))} mm); {used}.",
+                    $"Size {size} mm", Few(standards.AllowedSizesMm.Select(FormatMm)) + " mm");
             }
 
             if (standards.WidthFactor > 0 && Math.Abs(standards.WidthFactor - style.WidthFactor) > WidthTolerance)
             {
+                string actual = style.WidthFactor.ToString("0.###", CultureInfo.InvariantCulture);
+                string wanted = standards.WidthFactor.ToString("0.###", CultureInfo.InvariantCulture);
                 yield return Issue(item, Severity.Warning,
-                    $"Width factor {style.WidthFactor.ToString("0.###", CultureInfo.InvariantCulture)} should be {standards.WidthFactor.ToString("0.###", CultureInfo.InvariantCulture)}; {used}.");
+                    $"Width factor {actual} should be {wanted}; {used}.",
+                    $"Width factor {actual}", wanted);
             }
 
             var notAllowed = new List<string>();
@@ -78,13 +85,25 @@ namespace RevitTextQC.Core.Rules
             if (notAllowed.Count > 0)
             {
                 yield return Issue(item, Severity.Warning,
-                    $"{kind} uses {string.Join(", ", notAllowed)}, which is not allowed; {used}.");
+                    $"{kind} uses {string.Join(", ", notAllowed)}, which is not allowed; {used}.",
+                    string.Join(", ", notAllowed), "not allowed");
             }
         }
 
-        private QcIssue Issue(TextItem item, Severity severity, string message)
+        private QcIssue Issue(TextItem item, Severity severity, string message, string problem, string replacement)
         {
-            return new QcIssue { Item = item, RuleId = Id, RuleName = Name, Severity = severity, Message = message };
+            return new QcIssue
+            {
+                Item = item, RuleId = Id, RuleName = Name, Severity = severity,
+                Message = message, Problem = problem, Replacement = replacement
+            };
+        }
+
+        // The approved list can be long; the results column only has room for the first few.
+        private static string Few(IEnumerable<string> values)
+        {
+            List<string> all = values.ToList();
+            return string.Join(", ", all.Take(3)) + (all.Count > 3 ? " ..." : "");
         }
 
         public static string FormatMm(double mm)

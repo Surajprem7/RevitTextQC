@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Autodesk.Revit.DB;
 using RevitTextQC.Core;
 
@@ -25,22 +26,34 @@ namespace RevitTextQC.Scanning
         /// <summary>Every text note and dimension in scope with its type's style, for the Find tab.</summary>
         public List<StyledElement> StyledElements { get; } = new List<StyledElement>();
 
-        // null = whole project, otherwise the views the scan is limited to.
+        // null = whole project, otherwise the views the scan is limited to (sheets include the views placed on them).
         private readonly List<ElementId> _viewIds;
-        private readonly View _activeView;
+
+        /// <summary>Things that could not be read during the last <see cref="Collect"/>, for the status line.</summary>
+        public List<string> Notes { get; } = new List<string>();
 
         public TextCollector(Document doc, View activeView, ScanScope scope, QcSettings settings)
         {
             _doc = doc;
             _settings = settings;
-            _activeView = activeView;
-            _viewIds = scope == ScanScope.ActiveView && activeView != null ? ViewsInScope(activeView) : null;
+            _viewIds = scope == ScanScope.ActiveView && activeView != null
+                ? Expand(new[] { activeView.Id })
+                : null;
+        }
+
+        /// <summary>Scans the chosen views and sheets (and the views placed on the sheets).</summary>
+        public TextCollector(Document doc, IEnumerable<ElementId> views, QcSettings settings)
+        {
+            _doc = doc;
+            _settings = settings;
+            _viewIds = Expand(views);
         }
 
         public List<TextItem> Collect()
         {
             var items = new List<TextItem>();
             StyledElements.Clear();
+            Notes.Clear();
             // Always walked, even when switched off for QC, because the Find tab lists them regardless.
             CollectTextNotes(_settings.ScanTextNotes ? items : new List<TextItem>());
             CollectDimensions(_settings.ScanDimensions ? items : new List<TextItem>());
@@ -51,6 +64,8 @@ namespace RevitTextQC.Scanning
             if (_settings.ScanSheetsAndViews) CollectSheetsAndViews(items);
             if (_settings.ScanSheetsAndViews) CollectDatumNames(items);
             if (_settings.ScanSchedules) CollectSchedules(items);
+            if (_settings.ScanTitleBlock) CollectTitleBlock(items);
+            if (_settings.ScanVisibleText) CollectVisibleText(items);
             if (_settings.ScanKeynotes && _viewIds == null) CollectKeynotes(items);
             return items;
         }
@@ -65,11 +80,60 @@ namespace RevitTextQC.Scanning
             return items.Where(i => i.IsType).ToList();
         }
 
-        private static List<ElementId> ViewsInScope(View activeView)
+        private List<ElementId> Expand(IEnumerable<ElementId> requested)
         {
-            var ids = new List<ElementId> { activeView.Id };
-            if (activeView is ViewSheet sheet) ids.AddRange(sheet.GetAllPlacedViews());
+            var ids = new List<ElementId>();
+            var seen = new HashSet<ElementId>();
+            foreach (ElementId id in requested)
+            {
+                if (!(_doc.GetElement(id) is View view)) continue;
+                if (seen.Add(id)) ids.Add(id);
+
+                // Everything on a sheet is on the sheet or in a view placed on it.
+                if (view is ViewSheet sheet)
+                    foreach (ElementId placed in sheet.GetAllPlacedViews())
+                        if (seen.Add(placed)) ids.Add(placed);
+            }
             return ids;
+        }
+
+        private IEnumerable<ViewSheet> SheetsInScope()
+        {
+            if (_viewIds == null) return new FilteredElementCollector(_doc).OfClass(typeof(ViewSheet)).Cast<ViewSheet>();
+            return _viewIds.Select(id => _doc.GetElement(id)).OfType<ViewSheet>();
+        }
+
+        /// <summary>Every view and sheet the user can choose to scan, sheets first.</summary>
+        public static List<ViewChoice> ListViews(Document doc)
+        {
+            var choices = new List<ViewChoice>();
+            foreach (View view in new FilteredElementCollector(doc).OfClass(typeof(View)).Cast<View>())
+            {
+                if (view.IsTemplate) continue;
+                switch (view.ViewType)
+                {
+                    case ViewType.ProjectBrowser:
+                    case ViewType.SystemBrowser:
+                    case ViewType.Internal:
+                    case ViewType.Undefined:
+                        continue;
+                }
+                if (view is ViewSchedule schedule && IsInternalSchedule(schedule)) continue;
+
+                ViewSheet sheet = view as ViewSheet;
+                choices.Add(new ViewChoice
+                {
+                    Id = view.Id.Value,
+                    Name = sheet != null ? sheet.SheetNumber + " - " + sheet.Name : view.Name,
+                    Kind = sheet != null ? "Sheet" : Regex.Replace(view.ViewType.ToString(), "(?<=[a-z])(?=[A-Z])", " ")
+                });
+            }
+
+            return choices
+                .OrderBy(c => c.Kind == "Sheet" ? 0 : 1)
+                .ThenBy(c => c.Kind, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
 
         private IEnumerable<Element> Elements(Func<FilteredElementCollector, FilteredElementCollector> filter)
@@ -325,7 +389,7 @@ namespace RevitTextQC.Scanning
                     return Switch(_settings.ScanParameters, "Only the parameters listed above");
 
                 case BuiltInCategory.OST_TitleBlocks:
-                    return "Not checked (fields are sheet parameters)";
+                    return Switch(_settings.ScanTitleBlock, "Checked (sheet fields)");
             }
 
             if (name.EndsWith("Tags", StringComparison.OrdinalIgnoreCase) || name.EndsWith("Tag", StringComparison.OrdinalIgnoreCase))
@@ -585,14 +649,21 @@ namespace RevitTextQC.Scanning
                 return new FilteredElementCollector(_doc).OfClass(typeof(ViewSchedule)).Cast<ViewSchedule>();
 
             var result = new List<ViewSchedule>();
-            if (_activeView is ViewSchedule active) result.Add(active);
-            if (_activeView is ViewSheet)
+            foreach (ElementId id in _viewIds)
             {
-                foreach (ScheduleSheetInstance instance in new FilteredElementCollector(_doc, _activeView.Id)
-                             .OfClass(typeof(ScheduleSheetInstance)).Cast<ScheduleSheetInstance>())
+                View view = _doc.GetElement(id) as View;
+                if (view is ViewSchedule schedule)
                 {
-                    if (_doc.GetElement(instance.ScheduleId) is ViewSchedule placed && result.All(s => s.Id != placed.Id))
-                        result.Add(placed);
+                    if (result.All(s => s.Id != schedule.Id)) result.Add(schedule);
+                }
+                else if (view is ViewSheet)
+                {
+                    foreach (ScheduleSheetInstance instance in new FilteredElementCollector(_doc, id)
+                                 .OfClass(typeof(ScheduleSheetInstance)).Cast<ScheduleSheetInstance>())
+                    {
+                        if (_doc.GetElement(instance.ScheduleId) is ViewSchedule placed && result.All(s => s.Id != placed.Id))
+                            result.Add(placed);
+                    }
                 }
             }
             return result;
@@ -654,6 +725,157 @@ namespace RevitTextQC.Scanning
             {
                 // Keynote file not loaded.
             }
+        }
+
+        // ---- title block -------------------------------------------------------------------
+
+        // Names such as Drawn By or Checked By hold people's names, which no dictionary can judge.
+        private static readonly Regex PersonField = new Regex(
+            @"\b(by|checker|designer|author|approver|drawn|owner|engineer|architect)\b",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        private static readonly HashSet<string> ReadElsewhere = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Sheet Number", "Sheet Name"
+        };
+
+        /// <summary>
+        /// The words a title block prints come from the sheet, the project information and the revision
+        /// table. They are read from those, which is exact and fixable, rather than from the title block.
+        /// </summary>
+        private void CollectTitleBlock(List<TextItem> items)
+        {
+            List<ViewSheet> sheets = SheetsInScope().Where(s => !s.IsTemplate).ToList();
+            if (sheets.Count == 0) return;
+
+            AddFieldTexts(items, _doc.ProjectInformation, "Project information");
+
+            var revisions = new HashSet<ElementId>();
+            foreach (ViewSheet sheet in sheets)
+            {
+                AddFieldTexts(items, sheet, sheet.SheetNumber);
+                try
+                {
+                    foreach (ElementId id in sheet.GetAllRevisionIds()) revisions.Add(id);
+                }
+                catch (Autodesk.Revit.Exceptions.ApplicationException) { }
+            }
+
+            foreach (ElementId id in revisions)
+            {
+                if (!(_doc.GetElement(id) is Revision revision)) continue;
+                string description = revision.Description;
+                if (string.IsNullOrWhiteSpace(description)) continue;
+                items.Add(new TextItem
+                {
+                    ElementId = id.Value,
+                    Source = TextSource.Revision,
+                    Text = description,
+                    Location = "Revisions",
+                    Field = "Description",
+                    Editable = true
+                });
+            }
+        }
+
+        private static void AddFieldTexts(List<TextItem> items, Element element, string location)
+        {
+            if (element == null) return;
+            foreach (Parameter parameter in element.Parameters)
+            {
+                if (parameter.StorageType != StorageType.String || parameter.IsReadOnly || !parameter.HasValue) continue;
+                string name = parameter.Definition?.Name;
+                if (string.IsNullOrEmpty(name) || ReadElsewhere.Contains(name)) continue;
+                string text = parameter.AsString();
+                if (string.IsNullOrWhiteSpace(text)) continue;
+
+                items.Add(new TextItem
+                {
+                    ElementId = element.Id.Value,
+                    Source = TextSource.TitleBlock,
+                    Text = text,
+                    Location = location,
+                    Field = name,
+                    Editable = true,
+                    SkipSpelling = PersonField.IsMatch(name)
+                });
+            }
+        }
+
+        // ---- text drawn by families and title blocks -------------------------------------------
+
+        private const int MaxDeepViews = 30;
+
+        /// <summary>
+        /// Reads every string Revit draws in the views, which finds lettering no parameter exposes:
+        /// labels inside annotation families, fixed text in title blocks, keynote symbols, viewport titles.
+        /// Elements already read by another pass (text notes, dimensions, tags) are left out.
+        /// </summary>
+        private void CollectVisibleText(List<TextItem> items)
+        {
+            if (_viewIds == null) return;
+
+            List<View> views = _viewIds.Select(id => _doc.GetElement(id)).OfType<View>()
+                .Where(v => !v.IsTemplate && !(v is View3D) && !(v is ViewSchedule))
+                .ToList();
+            if (views.Count == 0) return;
+            if (views.Count > MaxDeepViews)
+            {
+                Notes.Add($"Text drawn by title blocks and families was not read: {views.Count} views is more than {MaxDeepViews}. Choose fewer views.");
+                return;
+            }
+
+            var reader = new DeepTextReader();
+            var failed = new List<string>();
+            foreach (View view in views)
+            {
+                try
+                {
+                    using (var exporter = new CustomExporter(_doc, reader)
+                    {
+                        Export2DIncludingAnnotationObjects = true,
+                        IncludeGeometricObjects = false,
+                        ShouldStopOnError = false
+                    })
+                    {
+                        exporter.Export(view);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // One view that cannot be replayed must not lose the findings from the others.
+                    failed.Add("\"" + view.Name + "\" (" + ex.Message + ")");
+                }
+            }
+            if (failed.Count > 0)
+                Notes.Add("Could not read the drawn text of " + string.Join("; ", failed.Take(3)) + (failed.Count > 3 ? "..." : "") + ".");
+
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (DeepTextReader.Hit hit in reader.Hits)
+            {
+                string text = hit.Text.Trim();
+                if (!text.Any(char.IsLetter)) continue; // numbers and dashes have nothing to check
+
+                Element element = hit.ElementId == null || hit.ElementId == ElementId.InvalidElementId ? null : _doc.GetElement(hit.ElementId);
+                if (element == null || IsReadByAnotherPass(element)) continue;
+                if (!seen.Add(element.Id.Value + "|" + text)) continue;
+
+                items.Add(new TextItem
+                {
+                    ElementId = element.Id.Value,
+                    Source = TextSource.VisibleText,
+                    Text = text,
+                    Location = ViewName(hit.ViewId),
+                    Field = element.Category?.Name,
+                    Editable = false
+                });
+            }
+        }
+
+        private static bool IsReadByAnotherPass(Element element)
+        {
+            return element is TextNote || element is Dimension || element is IndependentTag || element is SpatialElementTag
+                   || element is ModelText || element is Grid || element is Level || element is ScheduleSheetInstance;
         }
 
         private HashSet<string> UsedKeynoteKeys()
