@@ -4,8 +4,8 @@ For whoever rolls the add-in out, and for the people using it.
 
 ## What it is
 
-A Revit add-in built for Revit 2024, 2025, 2026 and 2027 (it has been tested inside Revit 2027; try it on one PC
-with 2024, 2025 or 2026 before the whole team) that checks the text on a sheet or view: spelling, text type and size,
+A Revit add-in for Revit 2024, 2025, 2026 and 2027 (tested inside each of them) that checks the text on a sheet
+or view: spelling, text type and size,
 letter case, spacing, forbidden words, and sheet/view naming. It reads text notes, dimensions, tags, room names,
 schedules, the title block (its fields, its revision text and the words typed inside it) and the lettering that
 families draw. Findings are listed with the error, a suggestion, the element id and a **Show** button that zooms

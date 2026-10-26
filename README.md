@@ -157,8 +157,8 @@ Push a version tag. GitHub Actions builds every Revit version, runs the tests an
 installed add-ins pick it up on their next start.
 
 ```powershell
-git tag v0.2.0
-git push origin v0.2.0
+git tag v0.6.5
+git push origin v0.6.5
 ```
 
 ## Third-party components
