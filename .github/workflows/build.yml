@@ -36,11 +36,22 @@ jobs:
           }
           ./build.ps1 -Package -Version $version
 
+      # One Setup.exe with every Revit version inside (no internet needed to install).
+      - name: Build Setup.exe
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          $version = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { '0.0.0' }
+          & $iscc "/DAppVersion=$version" installer/RevitTextQC.iss
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup failed' }
+
       - uses: actions/upload-artifact@v4
         with:
           name: RevitTextQC
           path: |
             dist/*.zip
+            dist/RevitTextQC-Setup.exe
             install.ps1
             Install-TextQC.bat
 
@@ -59,4 +70,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: gh release create "$GITHUB_REF_NAME" dist/*.zip install.ps1 Install-TextQC.bat --title "Text QC $GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" dist/*.zip dist/RevitTextQC-Setup.exe install.ps1 Install-TextQC.bat --title "Text QC $GITHUB_REF_NAME" --generate-notes

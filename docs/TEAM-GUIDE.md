@@ -23,10 +23,14 @@ spell-check library and the dictionaries, and Revit brings the .NET it runs on.
 ## Install (about two minutes per person)
 
 1. Close Revit.
-2. Easiest: download [Install-TextQC.bat](https://github.com/Surajprem7/RevitTextQC/releases/latest/download/Install-TextQC.bat)
-   and double-click it. It installs for every Revit version found on the PC.
+2. Easiest: download [RevitTextQC-Setup.exe](https://github.com/Surajprem7/RevitTextQC/releases/latest/download/RevitTextQC-Setup.exe)
+   and run it. It installs for every Revit version found on the PC, needs no internet and no administrator rights,
+   and adds an entry to Windows **Apps > Installed apps** to uninstall it. Windows may say "Windows protected your
+   PC" because the file is not code-signed: choose **More info > Run anyway**.
 
-   Or in **PowerShell**:
+   Alternatives, which download the add-in from GitHub: double-click
+   [Install-TextQC.bat](https://github.com/Surajprem7/RevitTextQC/releases/latest/download/Install-TextQC.bat),
+   or in **PowerShell**:
 
    ```powershell
    irm https://github.com/Surajprem7/RevitTextQC/releases/latest/download/install.ps1 -OutFile install.ps1; ./install.ps1
