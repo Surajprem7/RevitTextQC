@@ -1,0 +1,8 @@
+# Keeps the pinned build actions current. Library security alerts and fixes come from Dependabot's
+# security features in the repository settings, not from this file.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
