@@ -16,9 +16,16 @@ to the text, on the sheet if a sheet is open.
 Nothing extra. There is no .NET, Visual C++ or other setup file to install: the release contains the add-in, its
 spell-check library and the dictionaries, and Revit brings the .NET it runs on.
 
-- Windows 10 or 11, and one of Revit 2024, 2025, 2026 or 2027 (tested on 2027).
-- Internet access to github.com for the install and for updates (a company firewall may need to allow it).
-- No administrator rights: everything goes under the user's own `%APPDATA%`.
+- 64-bit Windows 10 or 11, and one of Revit 2024, 2025, 2026 or 2027 (all four are tested).
+- No administrator rights: the add-in goes under the user's own `%APPDATA%`, its log and update files under
+  `%LOCALAPPDATA%\RevitTextQC`, and short-lived files under `%TEMP%\RevitTextQC`. Those folders must be writable.
+- Internet is needed only for update checks and downloads, not to run the add-in, and not for RevitTextQC-Setup.exe.
+  If a company firewall blocks it, allow `github.com`, `api.github.com` and `*.githubusercontent.com` (where GitHub
+  stores release files). Without access the add-in works as usual, it just does not update; install updates by
+  running the newest Setup.exe.
+- Revit asks once per version of the add-in whether to trust it, because the add-in is not code-signed. If the
+  company blocks unsigned add-ins by policy, the add-in needs a code-signing certificate.
+- Not needed: .NET, Visual C++, administrator rights, Excel or any other program.
 
 ## Install (about two minutes per person)
 
