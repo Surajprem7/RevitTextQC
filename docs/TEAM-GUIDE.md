@@ -11,10 +11,22 @@ schedules, the title block (its fields, its revision text and the words typed in
 families draw. Findings are listed with the error, a suggestion, the element id and a **Show** button that zooms
 to the text, on the sheet if a sheet is open.
 
+## What the PC needs
+
+Nothing extra. There is no .NET, Visual C++ or other setup file to install: the release contains the add-in, its
+spell-check library and the dictionaries, and Revit brings the .NET it runs on.
+
+- Windows 10 or 11, and one of Revit 2024, 2025, 2026 or 2027 (tested on 2027).
+- Internet access to github.com for the install and for updates (a company firewall may need to allow it).
+- No administrator rights: everything goes under the user's own `%APPDATA%`.
+
 ## Install (about two minutes per person)
 
 1. Close Revit.
-2. Open **PowerShell** and run (all Revit versions found on the PC are installed):
+2. Easiest: download [Install-TextQC.bat](https://github.com/Surajprem7/RevitTextQC/releases/latest/download/Install-TextQC.bat)
+   and double-click it. It installs for every Revit version found on the PC.
+
+   Or in **PowerShell**:
 
    ```powershell
    irm https://github.com/Surajprem7/RevitTextQC/releases/latest/download/install.ps1 -OutFile install.ps1; ./install.ps1

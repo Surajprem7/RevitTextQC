@@ -55,7 +55,10 @@ fields, detail items and so on) is not looked at.
 
 ## Install
 
-Run this in PowerShell with Revit closed. It installs the latest release for every Revit version on the PC:
+Nothing else needs to be installed first: the release contains everything and Revit brings its own .NET.
+The easiest way is to download [Install-TextQC.bat](https://github.com/Surajprem7/RevitTextQC/releases/latest/download/Install-TextQC.bat)
+and double-click it with Revit closed. Or run this in PowerShell with Revit closed. It installs the latest release
+for every Revit version on the PC:
 
 ```powershell
 irm https://github.com/Surajprem7/RevitTextQC/releases/latest/download/install.ps1 -OutFile install.ps1; ./install.ps1
