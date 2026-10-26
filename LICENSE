@@ -1,0 +1,21 @@
+Revit Text QC
+Copyright (c) 2026 Suraj (GitHub: Surajprem7). All rights reserved.
+
+This software and its source code are proprietary. No licence is granted to copy, modify, merge, publish,
+distribute, sublicense or sell copies of it, in whole or in part, except as follows:
+
+  - The copyright holder, and the people and organisations the copyright holder has given the installer to,
+    may install and use the compiled add-in on their own computers.
+
+Any other use requires written permission from the copyright holder.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM THE USE OF THE SOFTWARE.
+The add-in changes drawings only when a person presses "Apply fix"; check its results before issuing drawings.
+
+Third-party components keep their own licences and are not covered by the notice above:
+
+  - WeCantSpell.Hunspell (MIT licence) - https://github.com/aarondandy/WeCantSpell.Hunspell
+  - English dictionaries en_US, en_GB and en_AU from the LibreOffice dictionaries project; their licence
+    texts are shipped next to them in the Dictionaries folder (README_en_*.txt).

@@ -161,6 +161,11 @@ git tag v0.6.5
 git push origin v0.6.5
 ```
 
+## Licence
+
+Copyright (c) 2026 Suraj. All rights reserved. This is proprietary software: see [LICENSE](LICENSE).
+It may be installed and used by the people it has been given to; copying or reusing the code needs permission.
+
 ## Third-party components
 
 - [WeCantSpell.Hunspell](https://github.com/aarondandy/WeCantSpell.Hunspell) spell checking engine.
